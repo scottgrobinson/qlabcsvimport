@@ -117,13 +117,15 @@ let cuelists = [];
   lightCues = []
   lightCuesWithData = []
   
+  console.log('Generating internal cue lists...\n')
   for(list of cuelists) {
     if(list['listName'] == 'Light Cues'){
       for(cue1 of list['cues']){
         for(cue2 of cue1['cues']){
-          if(['Scenes', 'Chases'].includes(cue1['listName'])){
+          if(['Scenes (Inc. All Off)', 'Chases'].includes(cue1['listName'])){
+            console.log(cue1['listName'])
             lightCuesWithData[cue2['listName']] = []
-            if(cue1['listName'] == 'Scenes'){
+            if(cue1['listName'] == 'Scenes (Inc. All Off)'){
               lightCuesWithData[cue2['listName']]['type'] = 'Scenes'
             } else if(cue1['listName'] == 'Chases'){
               lightCuesWithData[cue2['listName']]['type'] = 'Chases'
@@ -266,7 +268,6 @@ async function process_csv_data(qlabconn, songname, data) {
           firstcueid = newcue
         }
   
-        console.log(statedata)
         await methods_cue.set_name(qlabconn, 'selected', statedata['name'])
         await methods_light.set_lightstring(qlabconn, 'selected', lightCuesWithData[lfxname]['chasestates'][chasestate]['lightstring'])
         await methods_cue.set_duration(qlabconn, 'selected', statedata['duration'])
