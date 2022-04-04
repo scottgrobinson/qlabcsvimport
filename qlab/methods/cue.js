@@ -1,94 +1,94 @@
-var config = require("../../config.js");
+var helper = require("../../helper.js");
 var core = require("../core.js");
 
-function create(qlabconn, cuetype) {
+function create(cuetype) {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/workspace/${config.qlabworkspaceid}/new`, {"type" : 's', "value" : cuetype}))
+        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/new`, { "type": 's', "value": cuetype }))
     });
 }
 
-function move(qlabconn, cue, parent) {
+function move(cue, parent) {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/workspace/${config.qlabworkspaceid}/move/${cue}`, [{"type" : 'f', "value" : 9999999}, {"type" : 's', "value" : parent}]))
+        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/move/${cue}`, [{ "type": 'f', "value": 9999999 }, { "type": 's', "value": parent }]))
     });
 }
 
-function set_name(qlabconn, cue, name){
+function setName(cue, name) {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/cue/${cue}/name`, {"type" : 's', "value" : name}))
+        resolve(core.sendMessage(`/cue/${cue}/name`, { "type": 's', "value": name }))
     });
 }
 
-function set_mode(qlabconn, cue, mode){
+function setMode(cue, mode) {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/cue/${cue}/mode`, {"type" : 'f', "value" : mode}))
+        resolve(core.sendMessage(`/cue/${cue}/mode`, { "type": 'f', "value": mode }))
     });
 }
 
-function select(qlabconn, cue){
+function select(cue) {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/workspace/${config.qlabworkspaceid}/select_id/${cue}`))
+        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/select_id/${cue}`))
     });
 }
 
-function set_continue_mode(qlabconn, cue, mode){
+function setContinueMode(cue, mode) {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/cue/${cue}/continueMode`, {"type" : 'f', "value" : mode}))
+        resolve(core.sendMessage(`/cue/${cue}/continueMode`, { "type": 'f', "value": mode }))
     });
 }
 
-function set_target_id(qlabconn, cue, target){
+function setTargetID(cue, target) {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/cue/${cue}/cueTargetId`, {"type" : 's', "value" : target}))
+        resolve(core.sendMessage(`/cue/${cue}/cueTargetId`, { "type": 's', "value": target }))
     });
 }
 
-function set_duration(qlabconn, cue, duration){
+function setDuration(cue, duration) {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/cue/${cue}/duration`, {"type" : 'f', "value" : duration}))
+        resolve(core.sendMessage(`/cue/${cue}/duration`, { "type": 'f', "value": duration }))
     });
 }
 
-function get_duration(qlabconn, cue){
+function getDuration(cue) {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/cue/${cue}/duration`))
+        resolve(core.sendMessage(`/cue/${cue}/duration`))
     });
 }
 
-function set_prewait(qlabconn, cue, wait){
+function setPreWait(cue, wait) {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/cue/${cue}/preWait`, {"type" : 'f', "value" : wait}))
+        resolve(core.sendMessage(`/cue/${cue}/preWait`, { "type": 'f', "value": wait }))
     });
 }
 
-function set_fadeandstop(qlabconn, cue) {
+function getPreWait(cue, wait) {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/cue/${cue}/fadeAndStopOthers`, {"type" : 'f', "value" : 1}))
+        resolve(core.sendMessage(`/cue/${cue}/preWait`))
     });
 }
 
-function set_color(qlabconn, cue, color) {
+function setColor(cue, color) {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/cue/${cue}/colorName`, {"type" : 's', "value" : color}))
+        resolve(core.sendMessage(`/cue/${cue}/colorName`, { "type": 's', "value": color }))
     });
 }
 
-function list(qlabconn){
+function list() {
     return new Promise(resolve => {
-        resolve(core.send_message(qlabconn, `/workspace/${config.qlabworkspaceid}/cueLists`))
+        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/cueLists`))
     });
 }
 
 module.exports.create = create
 module.exports.move = move
-module.exports.set_name = set_name
-module.exports.set_mode = set_mode
+module.exports.setName = setName
+module.exports.setMode = setMode
 module.exports.select = select
-module.exports.set_continue_mode = set_continue_mode
-module.exports.set_target_id = set_target_id
-module.exports.set_duration = set_duration
-module.exports.get_duration = get_duration
-module.exports.set_prewait = set_prewait
-module.exports.set_fadeandstop = set_fadeandstop
-module.exports.set_color = set_color
+module.exports.setContinueMode = setContinueMode
+module.exports.setTargetID = setTargetID
+module.exports.setDuration = setDuration
+module.exports.getDuration = getDuration
+module.exports.setPreWait = setPreWait
+module.exports.getPreWait = getPreWait
+module.exports.setColor = setColor
 module.exports.list = list
