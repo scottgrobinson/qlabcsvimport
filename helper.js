@@ -1,9 +1,11 @@
-const fs = require('fs');
-
-const qlabCue = require('./qlab/methods/cue.js');
-const qlabLightCue = require('./qlab/methods/light.js');
+const fs = require('fs'),
+  path = require("path"),
+  cliProgress = require('cli-progress'),
+  qlabCue = require('./qlab/cue.js');
 
 var qlabworkspaceid = '';
+var progresBarActive = false;
+var warningsDuringCreate = [];
 
 /**
  * Converts timestamps to seconds.microsends
@@ -22,7 +24,7 @@ function processTimestamp(timestamp) {
 }
 
 /**
- * Converts a list of fixtures and there values from a light cue, to a list of fixtures and there values
+ * Converts a string of fixtures and there values from a light cue, to a list of fixtures and there values
  * @param {string} fixtureString The list of fixtures from a light cue as a string
  * @returns {array} The list of fixtures from a light cue as a list
  */
@@ -33,9 +35,9 @@ function stringOfFixturesToListOfFixtures(fixtureString) {
     const splitFixtureString = fixtureString.split("\n")
     for (fixture in splitFixtureString) {
       if (splitFixtureString[fixture] != '') {
-        fixturesetting = splitFixtureString[fixture].split("=")[0].trim()
-        fixturevalue = parseInt(splitFixtureString[fixture].split("=")[1].trim())
-        fixtureList[fixturesetting] = fixturevalue
+        fixtureSetting = splitFixtureString[fixture].split("=")[0].trim()
+        fixtureValue = parseInt(splitFixtureString[fixture].split("=")[1].trim())
+        fixtureList[fixtureSetting] = fixtureValue
       }
     }
   }
@@ -43,38 +45,49 @@ function stringOfFixturesToListOfFixtures(fixtureString) {
   return fixtureList
 }
 
-function lightListToStringOfLights(lfxlist) {
-  let lightsInSceneAsString = ''
+/**
+ * Converts a list of fixtures and there values from a light cue, to a string of fixtures and there values
+ * @param {array} fixtureList The list of fixtures from a light cue as a list
+ * @returns {string} The list of fixtures from a light cue as a string
+ */
+function listOfFixturesToStringOfFixtures(fixtureList) {
+  let fixturesInListAsString = ''
 
-  for (light in lfxlist) {
-    lightsInSceneAsString = lightsInSceneAsString + light + " = " + lfxlist[light].toString() + "\n"
+  for (fixture in fixtureList) {
+    fixturesInListAsString = fixturesInListAsString + fixture + " = " + fixtureList[fixture].toString() + "\n"
   }
 
-  return lightsInSceneAsString
+  return fixturesInListAsString
 }
 
-async function combineScenes(lfxlist) {
+/**
+ * Combines fixtures from multiple scenes into one fixture list. Where duplicate fixtures exist, the higher value will be used.
+ * @param {array} sceneList The list of scenes to pull fixtures from 
+ * @returns {array} The list of combined fixtures from the supplied scenes
+ */
+async function combineSceneFixtures(sceneList) {
   fixturesInScene = []
 
-  for (lfx in lfxlist) {
-    lfxname = lfxlist[lfx]
-    if (!('lightstring' in lightCues[lfxname])) {
-      lightCues[lfxname]['lightstring'] = await qlabLightCue.getLightString(lightCues[lfxname]['number'])
-      if (!lightCues[lfxname]['lightstring']) {
-        console.log(`  Error - Light string blank for ${lightCues[lfxname]}`)
-        process.exit(1)
+  for (scene in sceneList) {
+    sceneName = sceneList[scene]
+    if (!('lightstring' in lightCues[sceneName])) {
+      lightCues[sceneName]['lightstring'] = await qlabCue.getLightString(lightCues[sceneName]['number'])
+      if (!lightCues[sceneName]['lightstring']) {
+        showErrorAndExit(`Light string blank for ${lightCues[sceneName]}`)
       }
     }
 
-    let fixtures = stringOfFixturesToListOfFixtures(lightCues[lfxname]['lightstring'])
+    let fixtures = stringOfFixturesToListOfFixtures(lightCues[sceneName]['lightstring'])
     for (fixture in fixtures) {
-      fixturevalue = fixtures[fixture]
+      fixtureValue = fixtures[fixture]
 
       if (!(fixture in fixturesInScene)) {
-        fixturesInScene[fixture] = fixturevalue
+        fixturesInScene[fixture] = fixtureValue
       } else {
-        if (fixturevalue >= fixturesInScene[fixture]) {
-          fixturesInScene[fixture] = fixturevalue
+        if (fixtureValue >= fixturesInScene[fixture]) {
+          fixturesInScene[fixture] = fixtureValue
+        } else {
+          warningsDuringCreate.push(`Dropping fixture ${fixture} from ${sceneList[scene]} as ${fixtureValue} < ${fixturesInScene[fixture]} (Combined scenes ${scenesList.join(', ')})`)
         }
       }
     }
@@ -83,54 +96,77 @@ async function combineScenes(lfxlist) {
   return fixturesInScene
 }
 
-async function createGroup(groupkey) {
-  group_key_cue = await qlabCue.create('group')
-  await qlabCue.setName('selected', `${groupkey} `);
+/**
+ * Creates & selects a qLab group cue
+ * @param {string} groupKey The group key
+ * @returns The key of the created group cue
+ */
+async function createGroup(groupKey) {
+  groupKeyCue = await qlabCue.create('group')
+  await qlabCue.setName('selected', groupKey);
   await qlabCue.setMode('selected', 3);
 
-  return group_key_cue
+  return groupKeyCue
 }
 
-async function createScene(groupkey, lfxname, start) {
-  if (!('lightstring' in lightCues[lfxname])) {
-    lightCues[lfxname]['lightstring'] = await qlabLightCue.getLightString(lightCues[lfxname]['number'])
-    if (!lightCues[lfxname]['lightstring']) {
-      console.log(`  Error - Light string blank for ${lightCues[lfxname]}`)
-      process.exit(1)
+/**
+ * Creates a cue in an existing group from a scene
+ * @param {string} groupKey The key of the group to move the scene into
+ * @param {string} sceneName The name of the scene to use 
+ * @param {string} start The start time of the cue (sss.mmm)
+ */
+async function createCueFromScene(groupKey, sceneName, start) {
+  if (!('lightstring' in lightCues[sceneName])) {
+    lightCues[sceneName]['lightstring'] = await qlabCue.getLightString(lightCues[sceneName]['number'])
+    if (!lightCues[sceneName]['lightstring']) {
+      showErrorAndExit(`Light string blank for ${lightCues[sceneName]}`)
     }
   }
 
   let newcue = await qlabCue.create('light')
-  await qlabCue.setName('selected', lfxname)
-  await qlabLightCue.setLightString('selected', lightCues[lfxname]['lightstring'])
+  await qlabCue.setName('selected', sceneName)
+  await qlabCue.setLightString('selected', lightCues[sceneName]['lightstring'])
   await qlabCue.setDuration('selected', '00.000')
   await qlabCue.setPreWait('selected', await start)
-  await qlabCue.move(newcue, groupkey)
-  return lightCues[lfxname]['lightstring']
+  await qlabCue.move(newcue, groupKey)
 }
 
-async function createChaser(groupkey, lfxname, start, duration, existinglights) {
-  const parentchasegroupkey = await createGroup(lfxname + ' CONTAINER')
+/**
+ * Creates a cue in an existing group from a chaser
+ * @param {string} groupKey The key of the group to move the chaser into
+ * @param {string} chaserName The name of the chaser to use 
+ * @param {string} start The start time of the cue (sss.mmm)
+ * @param {string} duration The duration of the cue (sss.mmm)
+ * @param {array} existingFixtures List of existing fixtures in use when added to a group with scenes
+ * @param {boolean} chaseFixtureRemovalOnMatchingFixture Remove fixtures from a chase if combined in a group with a scene that has a fixture contained within the chase
+ * @param {string} existingFixturesSceneName The name of the scene where existingFixtures are taken from
+ */
+async function createCueFromChaser(groupKey, chaserName, start, duration, existingFixtures, chaseFixtureRemovalOnMatchingFixture, existingFixturesSceneName) {
+  const parentChaseGroupKey = await createGroup(chaserName + ' CONTAINER')
   await qlabCue.setPreWait('selected', await start)
 
-  const chasegroupkey = await createGroup(lfxname)
+  const chasegroupKey = await createGroup(chaserName)
   await qlabCue.setMode('selected', 1)
 
-  for (chasestate in lightCues[lfxname]['chasestates']) {
-    statedata = lightCues[lfxname]['chasestates'][chasestate]
+  for (chasestate in lightCues[chaserName]['chasestates']) {
+    statedata = lightCues[chaserName]['chasestates'][chasestate]
     if (statedata['type'] == "Light") {
-      if (!('lightstring' in lightCues[lfxname]['chasestates'][chasestate])) {
-        lightCues[lfxname]['chasestates'][chasestate]['lightstring'] = await qlabLightCue.getLightString(lightCues[lfxname]['chasestates'][chasestate]['number'])
-        if (!lightCues[lfxname]['chasestates'][chasestate]['lightstring']) {
-          console.log(`  Error - Light string blank for ${lightCues[lfxname]['chasestates'][chasestate]['name']}`)
-          process.exit(1)
+      if (!('lightstring' in lightCues[chaserName]['chasestates'][chasestate])) {
+        lightCues[chaserName]['chasestates'][chasestate]['lightstring'] = await qlabCue.getLightString(lightCues[chaserName]['chasestates'][chasestate]['number'])
+        if (!lightCues[chaserName]['chasestates'][chasestate]['lightstring']) {
+          showErrorAndExit(`Light string blank for ${lightCues[chaserName]['chasestates'][chasestate]['name']}`)
         }
+      }
 
-        if (existinglights) {
-          lightList = stringOfFixturesToListOfFixtures(lightCues[lfxname]['chasestates'][chasestate]['lightstring'])
-          for (light in lightList) {
-            if (light in existinglights) {
-              console.log(`Warning - Chase "${statedata['name']}" (s${start} / d${duration}) light ${light} will override the parent scene`)
+      fixtureList = stringOfFixturesToListOfFixtures(lightCues[chaserName]['chasestates'][chasestate]['lightstring'])
+      if (existingFixtures) {
+        for (fixture in fixtureList) {
+          if (fixture in existingFixtures) {
+            if (chaseFixtureRemovalOnMatchingFixture) {
+              delete fixtureList[fixture]
+              warningsDuringCreate.push(`Chase "${statedata['name']}" (start ${start} / duration ${duration}) fixture ${fixture} was removed as it would have overridden the scene ${existingFixturesSceneName}`)
+            } else {
+              warningsDuringCreate.push(`Chase "${statedata['name']}" (start ${start} / duration ${duration}) fixture ${fixture} will override the scene ${existingFixturesSceneName}`)
             }
           }
         }
@@ -142,21 +178,20 @@ async function createChaser(groupkey, lfxname, start, duration, existinglights) 
       }
 
       await qlabCue.setName('selected', statedata['name'])
-      await qlabLightCue.setLightString('selected', lightCues[lfxname]['chasestates'][chasestate]['lightstring'])
+      await qlabCue.setLightString('selected', listOfFixturesToStringOfFixtures(fixtureList))
       await qlabCue.setDuration('selected', statedata['duration'])
       await qlabCue.setContinueMode('selected', 2)
-      await qlabCue.move(newcue, chasegroupkey)
+      await qlabCue.move(newcue, chasegroupKey)
       lastfixturename = statedata['name']
       lastfixtureindex = chasestate
     } else if (statedata['type'] == "Wait") {
       let newcue = await qlabCue.create('wait')
-      await qlabCue.setDuration('selected', await qlabCue.getDuration(lightCues[lfxname]['chasestates'][chasestate]['number']))
+      await qlabCue.setDuration('selected', await qlabCue.getDuration(lightCues[chaserName]['chasestates'][chasestate]['number']))
       await qlabCue.setContinueMode('selected', 2)
-      await qlabCue.move(newcue, chasegroupkey)
+      await qlabCue.move(newcue, chasegroupKey)
     }
   }
 
-  // START LG
   loopgroup = await qlabCue.create('group')
   await qlabCue.setName('selected', 'Loop Group/Reset');
   await qlabCue.setMode('selected', 2);
@@ -167,62 +202,61 @@ async function createChaser(groupkey, lfxname, start, duration, existinglights) 
   await qlabCue.setContinueMode('selected', 2)
   await qlabCue.move(startcue, loopgroup)
 
-  fixturesettingstouse = lightCues[lfxname]['chasestates'][lastfixtureindex]['lightstring']
+  fixturesettingstouse = lightCues[chaserName]['chasestates'][lastfixtureindex]['lightstring']
   const splitLightString = fixturesettingstouse.split("\n")
-  lightsInScene = []
+  fixturesInScene = []
   for (light in splitLightString) {
-    fixturesetting = splitLightString[light].split("=")[0].trim()
-    fixturevalue = parseInt(splitLightString[light].split("=")[1].trim())
-    if (!(fixturesetting in lightsInScene)) {
-      lightsInScene[fixturesetting] = fixturevalue
+    fixtureSetting = splitLightString[light].split("=")[0].trim()
+    fixtureValue = parseInt(splitLightString[light].split("=")[1].trim())
+    if (!(fixtureSetting in fixturesInScene)) {
+      fixturesInScene[fixtureSetting] = fixtureValue
     } else {
-      if (fixturevalue >= lightsInScene[fixturesetting]) {
-        lightsInScene[fixturesetting] = fixturevalue
+      if (fixtureValue >= fixturesInScene[fixtureSetting]) {
+        fixturesInScene[fixtureSetting] = fixtureValue
       }
     }
   }
 
-  resetLights = []
-  for (light in lightsInScene) {
-    if (lightsInScene[light] != 0) {
-      resetLights[light] = 0
+  resetFixtures = []
+  for (fixture in fixturesInScene) {
+    if (fixturesInScene[fixture] != 0) {
+      resetFixtures[fixture] = 0
     }
-  }
-
-  lightsInSceneAsString = ''
-  // convert back to string
-  for (light in resetLights) {
-    lightsInSceneAsString = lightsInSceneAsString + light + " = " + resetLights[light].toString() + "\n"
   }
 
   lightcue = await qlabCue.create('light')
   await qlabCue.setDuration('selected', '00.00')
-  await qlabLightCue.setLightString('selected', lightsInSceneAsString)
+  await qlabCue.setLightString('selected', listOfFixturesToStringOfFixtures(resetFixtures))
   await qlabCue.setName('selected', `Reset ${lastfixturename} `);
   await qlabCue.move(lightcue, loopgroup)
 
-  await qlabCue.move(loopgroup, chasegroupkey);
-  // END LG
+  await qlabCue.move(loopgroup, chasegroupKey);
 
-  const durationgroupkey = await createGroup('CHASE DURATION CONTAINER')
+  const durationGroupKey = await createGroup('CHASE DURATION CONTAINER')
   await qlabCue.setMode('selected', 1)
   let waitcue = await qlabCue.create('wait')
-  let calculatedduration = await duration;
-  await qlabCue.setName('selected', `Wait ${calculatedduration} Seconds`)
-  await qlabCue.setDuration('selected', calculatedduration)
+  let calculatedDuration = await duration;
+  await qlabCue.setName('selected', `Wait ${calculatedDuration} Seconds`)
+  await qlabCue.setDuration('selected', calculatedDuration)
   await qlabCue.setContinueMode('selected', 2)
-  await qlabCue.move(waitcue, durationgroupkey)
+  await qlabCue.move(waitcue, durationGroupKey)
   let stopcue = await qlabCue.create('stop')
   await qlabCue.setName('selected', 'Stop Chase')
-  await qlabCue.setTargetID('selected', chasegroupkey)
-  await qlabCue.move(stopcue, durationgroupkey)
+  await qlabCue.setTargetID('selected', chasegroupKey)
+  await qlabCue.move(stopcue, durationGroupKey)
 
-  await qlabCue.move(chasegroupkey, parentchasegroupkey)
-  await qlabCue.move(durationgroupkey, parentchasegroupkey)
+  await qlabCue.move(chasegroupKey, parentChaseGroupKey)
+  await qlabCue.move(durationGroupKey, parentChaseGroupKey)
 
-  await qlabCue.move(parentchasegroupkey, groupkey)
+  await qlabCue.move(parentChaseGroupKey, groupKey)
 }
 
+/**
+ * Combine cues where the start time and duration match 
+ * TODO: Tidy up the logic here. It works but it makes no sense....
+ * @param {array} incomingData 
+ * @returns {array}
+ */
 function combineCuesByStartAndDuration(incomingData) {
   const newData = []
   for (row in incomingData) {
@@ -276,6 +310,12 @@ function combineCuesByStartAndDuration(incomingData) {
   return outgoingData
 }
 
+/**
+ * Generate an internal "cache" of Scenes & Chasers from qLab
+ * @param {array} masterCueLists Array of all cues from qLab
+ * @param {string} lightcuelistcachefile Path to file where the cache is saved
+ * @returns {array} Array of scenes & chasers
+ */
 async function generateInternalLightCueList(masterCueLists, lightcuelistcachefile) {
   lightCues = {}
 
@@ -298,12 +338,13 @@ async function generateInternalLightCueList(masterCueLists, lightcuelistcachefil
               for (chaseCue of lightChildCueList['cues']) {
                 // We'll make the Loop Group/Reset ourself rather than try and copy it
                 if (chaseCue['name'] != "Loop" && chaseCue['name'] != "Loop Group/Reset") {
-                  stateData = {}
-                  stateData['name'] = chaseCue['name']
-                  stateData['id'] = chaseCue['uniqueID']
-                  stateData['number'] = chaseCue['number']
-                  stateData['type'] = chaseCue['type']
-                  stateData['duration'] = await qlabCue.getDuration(chaseCue['number'])
+                  stateData = {
+                    'name': chaseCue['name'],
+                    'id': chaseCue['uniqueID'],
+                    'number': chaseCue['number'],
+                    'type': chaseCue['type'],
+                    'duration': await qlabCue.getDuration(chaseCue['number'])
+                  }
                   lightCues[lightChildCueList['listName']]['chasestates'].push(stateData)
                 }
               }
@@ -323,8 +364,14 @@ async function generateInternalLightCueList(masterCueLists, lightcuelistcachefil
   return lightCues
 }
 
-// Process the CSV row data
-async function processCSVData(songname, csvData) {
+/**
+ * Processes the data from the CSV file
+ * TODO: Break this down futher to make it more readable
+ * @param {string} fileName The filename of the CSV used to determine the group title
+ * @param {array} csvData Array of data from CSV file
+ * @param {boolean} chaseFixtureRemovalOnMatchingFixture Remove fixtures from a chase if combined in a group with a scene that has a fixture contained within the chase
+ */
+async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFixture) {
   // Group cues by start time and duration
   let combinedCues = combineCuesByStartAndDuration(csvData)
 
@@ -337,15 +384,20 @@ async function processCSVData(songname, csvData) {
     }
   }
   if (!dumpcuelistid) {
-    console.log('Error - Unable to temporary dump cue list \'Script Dump - DO NOT USE\'')
-    process.exit(1)
+    showErrorAndExit('Unable to temporary dump cue list \'Script Dump - DO NOT USE\'')
   }
 
-  // Select the dump cue list so we are creating everything in the right place
-  await qlabCue.select(dumpcuelistid)
+  // Essentially select the last item in the cue list
+  await qlabCue.selectByNumber('9999999999')
   // Create 'master' group for this audio timeline
-  const groupkey = await createGroup(songname)
+  const groupKey = await createGroup(path.basename(fileName, path.extname(fileName)))
+  const progressBar = new cliProgress.SingleBar({
+    format: '{bar} {value} of {total} ({percentage}%)',
+  }, cliProgress.Presets.shades_classic);
+  progresBarActive = true;
+  progressBar.start(combinedCues.length);
   for (cue in combinedCues) {
+    progressBar.update(parseInt(cue) + 1 / 2);
     const lfxlist = combinedCues[cue][0];
     const start = combinedCues[cue][1];
     const duration = combinedCues[cue][2];
@@ -354,11 +406,9 @@ async function processCSVData(songname, csvData) {
     // Otherwise, we'll get fancy and combine them!
     if (lfxlist.length == 1) {
       if (lightCues[lfxlist[0]]['type'] == "Scenes") {
-        await createScene(groupkey, lfxlist[0], start);
+        await createCueFromScene(groupKey, lfxlist[0], start);
       } else if (lightCues[lfxlist[0]]['type'] == "Chases") {
-        await createChaser(groupkey, lfxlist[0], start, duration, null);
-      } else {
-        console.log(`  Error - Light cue type '${lightCues[lfxlist[0]]['type']}' not supported.Not quite sure how we\'ve got here.... Oopsie!`)
+        await createCueFromChaser(groupKey, lfxlist[0], start, duration, null, false, null);
       }
     } else {
       // Determine if we've got multiple cues of the same type, or mixed (I.E Scenes, Chasers or Scenes & Chasers)
@@ -374,28 +424,30 @@ async function processCSVData(songname, csvData) {
         }
       }
 
-      name = lfxlist.join(' + ')
+      cueName = lfxlist.join(' + ')
       if (type == "Scenes") {
         // Create a scene with all of the lights combined
         let newcue = await qlabCue.create('light')
-        await qlabCue.setName('selected', name)
-        await qlabLightCue.setLightString('selected', lightListToStringOfLights(await combineScenes(lfxlist)))
+        await qlabCue.setName('selected', cueName)
+        await qlabCue.setLightString('selected', listOfFixturesToStringOfFixtures(await combineSceneFixtures(lfxlist)))
         await qlabCue.setDuration('selected', '00.000')
         await qlabCue.setPreWait('selected', start)
-        await qlabCue.move(newcue, groupkey)
+        await qlabCue.move(newcue, groupKey)
       } else if (type == "Chases") {
         // Create a group containing all of the chasers
-        parent = await createGroup('COMBINE ME CHASES - ' + name)
-        await qlabCue.setColor('selected', 'red')
+        parent = await createGroup(cueName)
+
+        if (lfxlist.length > 1) {
+          warningsDuringCreate.push(`More than two chases (${lfxlist.join(', ')}) are combined in a group (start ${start} / duration ${duration}). You will need to manually check no fixtures overlap.`)
+        }
 
         for (lfx in lfxlist) {
-          await createChaser(parent, lfxlist[lfx], start, duration, null);
+          await createCueFromChaser(parent, lfxlist[lfx], start, duration, null, false, null);
         }
-        await qlabCue.move(parent, groupkey)
+        await qlabCue.move(parent, groupKey)
       } else if (type == "Mixed") {
         // Create a group containing the scenes & chasers
-        parent = await createGroup('COMBINE ME MIXED - ' + name)
-        await qlabCue.setColor('selected', 'red')
+        parent = await createGroup(cueName)
 
         sceneList = []
         chaseList = []
@@ -407,33 +459,65 @@ async function processCSVData(songname, csvData) {
           }
         }
 
-        let lightsInScene = await combineScenes(sceneList)
+        let lightsInScene = await combineSceneFixtures(sceneList)
         let newcue = await qlabCue.create('light')
-        await qlabCue.setName('selected', sceneList.join(' + '))
-        await qlabLightCue.setLightString('selected', lightListToStringOfLights(lightsInScene))
+        let sceneName = sceneList.join(' + ')
+        await qlabCue.setName('selected', sceneName)
+        await qlabCue.setLightString('selected', listOfFixturesToStringOfFixtures(lightsInScene))
         await qlabCue.setDuration('selected', '00.000')
         await qlabCue.setPreWait('selected', start)
         await qlabCue.move(newcue, parent)
 
-        for (chase in chaseList) {
-          await createChaser(parent, chaseList[chase], start, duration, lightsInScene);
+        if (chaseList.length > 1) {
+          warningsDuringCreate.push(`More than two chases (${chaseList.join(', ')}) are combined in a group (start ${start} / duration ${duration}). You will need to manually check no fixtures overlap.`)
         }
 
-        await qlabCue.move(parent, groupkey)
+        for (chase in chaseList) {
+          await createCueFromChaser(parent, chaseList[chase], start, duration, lightsInScene, chaseFixtureRemovalOnMatchingFixture, sceneName);
+        }
+
+        await qlabCue.move(parent, groupKey)
       }
     }
+    progressBar.update(parseInt(cue) + 1);
   }
+  progressBar.stop();
+  progresBarActive = false;
+
+  if (warningsDuringCreate) {
+    console.log('\n')
+    for (warning in warningsDuringCreate) {
+      console.log(`\x1b[33m[Warning] - ${warningsDuringCreate[warning]}\x1b[0m`)
+    }
+  }
+
+}
+
+
+/**
+ * Displays error message in red then exits
+ * @param {string} message Message to display
+ */
+function showErrorAndExit(message) {
+  if (progresBarActive) {
+    console.log(`\n\x1b[31m[Error] ${message}. Exiting...\x1b[0m`)
+  } else {
+    console.log(`\x1b[31m[Error] ${message}. Exiting...\x1b[0m`)
+  }
+  process.exit(1)
 }
 
 module.exports.processTimestamp = processTimestamp
-module.exports.lightListToStringOfLights = lightListToStringOfLights
+module.exports.listOfFixturesToStringOfFixtures = listOfFixturesToStringOfFixtures
 module.exports.createGroup = createGroup
-module.exports.createScene = createScene
-module.exports.createChaser = createChaser
+module.exports.createCueFromScene = createCueFromScene
+module.exports.createCueFromChaser = createCueFromChaser
 module.exports.stringOfFixturesToListOfFixtures = stringOfFixturesToListOfFixtures
-module.exports.combineScenes = combineScenes
+module.exports.combineSceneFixtures = combineSceneFixtures
 module.exports.combineCuesByStartAndDuration = combineCuesByStartAndDuration
 module.exports.generateInternalLightCueList = generateInternalLightCueList
 module.exports.processCSVData = processCSVData
+module.exports.showErrorAndExit = showErrorAndExit
 
 exports.qlabworkspaceid = qlabworkspaceid;
+exports.progresBarActive = progresBarActive;

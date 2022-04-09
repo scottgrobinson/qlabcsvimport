@@ -2,14 +2,10 @@
   "name": "qlabcsvimport",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "start": "node app.js"
-  },
   "dependencies": {
     "async": "^3.2.3",
+    "cli-progress": "^3.10.0",
     "csv": "^6.0.5",
-    "csv-parser": "^3.0.0",
-    "npm": "^8.6.0",
     "osc": "^2.4.2",
     "prompts": "^2.4.2"
   }

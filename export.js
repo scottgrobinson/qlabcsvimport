@@ -1,27 +1,23 @@
-const fs = require('fs');
+const fs = require('fs'),
+  qlabCore = require('./qlab/core.js'),
+  qlabCue = require('./qlab/cue.js'),
+  helper = require('./helper.js'),
+  homedir = require('os').homedir();
 
-const qlabCore = require('./qlab/core.js');
-const qlabCue = require('./qlab/methods/cue.js');
-const qlabLightCue = require('./qlab/methods/light.js');
+const settingsFile = homedir + '/.qlabtools_data.json';
 
-const helper = require('./helper.js');
-
-const homedir = require('os').homedir();
-const settingsfile = homedir + '/.srobinsonqlabtools_comparedata.json';
+let existingSettings = (function () {
+  try {
+    return JSON.parse(fs.readFileSync(settingsFile));
+  } catch (err) {
+    return {}
+  }
+})();
 
 (async () => {
   // Ask the user to specify the parameters required, trying to read from the defined settings file first
-  async function getSettings() {
+  async function getNewSettings() {
     return new Promise((resolve, reject) => {
-
-      let currentSettings = (function () {
-        try {
-          return JSON.parse(fs.readFileSync(settingsfile));
-        } catch (err) {
-          return {}
-        }
-      })();
-
       const prompts = require('prompts');
 
       // Ask the questions
@@ -35,22 +31,23 @@ const settingsfile = homedir + '/.srobinsonqlabtools_comparedata.json';
             type: 'text',
             name: 'qlabip',
             message: `qLab IP:`,
-            initial: 'qlabip' in currentSettings ? currentSettings['qlabip'] : '',
+            initial: 'qlabip' in existingSettings ? existingSettings['qlabip'] : '',
             validate: qlabip => qlabip === '' ? 'Cannot be blank' : true
           },
           {
             type: 'text',
             name: 'qlabworkspaceid',
             message: `qLab Workspace ID:`,
-            initial: 'qlabworkspaceid' in currentSettings ? currentSettings['qlabworkspaceid'] : '',
+            initial: 'qlabworkspaceid' in existingSettings ? existingSettings['qlabworkspaceid'] : '',
             validate: qlabworkspaceid => qlabworkspaceid === '' ? 'Cannot be blank' : true
           },
           {
             type: 'text',
             name: 'outputdir',
             message: `Output directory:`,
-            initial: 'outputdir' in currentSettings ? currentSettings['outputdir'] : '',
-            validate: outputdir => outputdir === '' ? 'Cannot be blank' : true
+            initial: 'outputdir' in existingSettings ? existingSettings['outputdir'] : '',
+            validate: outputdir => outputdir === '' ? 'Cannot be blank' : true,
+            format: outputdir => outputdir
           }
         ], { onCancel }));
       })();
@@ -58,8 +55,8 @@ const settingsfile = homedir + '/.srobinsonqlabtools_comparedata.json';
     })
   }
 
-  const settings = await getSettings();
-  fs.writeFileSync(settingsfile, JSON.stringify(settings));
+  const settings = await getNewSettings();
+  fs.writeFileSync(settingsFile, JSON.stringify(Object.assign({}, existingSettings, settings)));
   helper.qlabworkspaceid = settings['qlabworkspaceid']
   console.log()
 
@@ -77,8 +74,7 @@ const settingsfile = homedir + '/.srobinsonqlabtools_comparedata.json';
     }
   }
   if (!dumpcuelistid) {
-    console.log('Error - Unable to temporary dump cue list \'Script Dump - DO NOT USE\'')
-    process.exit(1)
+    helper.showErrorAndExit('Unable to find temporary dump cue list \'Script Dump - DO NOT USE\'')
   }
 
   console.log(`Starting export of workspace ${settings['qlabworkspaceid']}`)
@@ -105,7 +101,7 @@ const settingsfile = homedir + '/.srobinsonqlabtools_comparedata.json';
             "components": [],
           }
           if (cueL2Type == "Light") {
-            cueL2Data[cueL2Name]["fixtures"] = await helper.stringOfFixturesToListOfFixtures(await qlabLightCue.getLightString(cueL2Num))
+            cueL2Data[cueL2Name]["fixtures"] = await helper.stringOfFixturesToListOfFixtures(await qlabCue.getLightString(cueL2Num))
           }
           for (cueL3 in list['cues'][cueL1]['cues'][cueL2]['cues']) {
             cueL3Data = {}
@@ -119,7 +115,7 @@ const settingsfile = homedir + '/.srobinsonqlabtools_comparedata.json';
               "components": []
             }
             if (cueL3Type == "Light") {
-              cueL3Data[cueL3Name]["fixtures"] = await helper.stringOfFixturesToListOfFixtures(await qlabLightCue.getLightString(cueL3Num))
+              cueL3Data[cueL3Name]["fixtures"] = await helper.stringOfFixturesToListOfFixtures(await qlabCue.getLightString(cueL3Num))
             }
             cueL2Data[cueL2Name]["components"].push(cueL3Data)
             for (cueL4 in list['cues'][cueL1]['cues'][cueL2]['cues'][cueL3]['cues']) {
@@ -134,7 +130,7 @@ const settingsfile = homedir + '/.srobinsonqlabtools_comparedata.json';
                 "components": []
               }
               if (cueL4Type == "Light") {
-                cueL4Data[cueL4Name]["fixtures"] = await helper.stringOfFixturesToListOfFixtures(await qlabLightCue.getLightString(cueL4Num))
+                cueL4Data[cueL4Name]["fixtures"] = await helper.stringOfFixturesToListOfFixtures(await qlabCue.getLightString(cueL4Num))
               }
               cueL3Data[cueL3Name]["components"].push(cueL4Data)
               for (cueL5 in list['cues'][cueL1]['cues'][cueL2]['cues'][cueL3]['cues'][cueL4]['cues']) {
@@ -149,7 +145,7 @@ const settingsfile = homedir + '/.srobinsonqlabtools_comparedata.json';
                   "components": []
                 }
                 if (cueL5Type == "Light") {
-                  cueL5Data[cueL5Name]["fixtures"] = await helper.stringOfFixturesToListOfFixtures(await qlabLightCue.getLightString(cueL5Num))
+                  cueL5Data[cueL5Name]["fixtures"] = await helper.stringOfFixturesToListOfFixtures(await qlabCue.getLightString(cueL5Num))
                 }
                 cueL4Data[cueL4Name]["components"].push(cueL5Data)
                 for (cueL6 in list['cues'][cueL1]['cues'][cueL2]['cues'][cueL3]['cues'][cueL4]['cues'][cueL5]['cues']) {
@@ -163,7 +159,7 @@ const settingsfile = homedir + '/.srobinsonqlabtools_comparedata.json';
                     "prewait": await qlabCue.getPreWait(cueL6Num),
                   }
                   if (cueL6Type == "Light") {
-                    cueL6Data[cueL6Name]["fixtures"] = await helper.stringOfFixturesToListOfFixtures(await qlabLightCue.getLightString(cueL6Num))
+                    cueL6Data[cueL6Name]["fixtures"] = await helper.stringOfFixturesToListOfFixtures(await qlabCue.getLightString(cueL6Num))
                   }
                   cueL5Data[cueL5Name]["components"].push(cueL6Data)
                 }
