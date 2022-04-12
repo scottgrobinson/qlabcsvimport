@@ -87,7 +87,7 @@ async function combineSceneFixtures(sceneList) {
         if (fixtureValue >= fixturesInScene[fixture]) {
           fixturesInScene[fixture] = fixtureValue
         } else {
-          warningsDuringCreate.push(`Dropping fixture ${fixture} from ${sceneList[scene]} as ${fixtureValue} < ${fixturesInScene[fixture]} (Combined scenes ${scenesList.join(', ')})`)
+          warningsDuringCreate.push(`Dropping fixture ${fixture} from ${sceneList[scene]} as ${fixtureValue} < ${fixturesInScene[fixture]} (Combined scenes ${sceneList.join(', ')})`)
         }
       }
     }
