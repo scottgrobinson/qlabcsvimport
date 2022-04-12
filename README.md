@@ -16,11 +16,12 @@ Run with "node app.js" and it will:
 - Combine scenes/chasers into groups where the start time & durations match
 - Create scenes/chasers at the specified start times with the specified durations
 
+![qLab Screenshot](/screenshot.png?raw=true)
+
 On first running the script, a number of questions are asked including "Remove fixtures from a chase if combined in a group with a scene that has a fixture contained within the chase?". When creating a group (scenes/chasers that start at the same time with the same duration)...
 
 - Warn: Will warn you if you have any light fixtures in your chasers that would override what is set on the scene in that group. I.E If the scene has a Spotlight on, but a chaser turns the spotlight on and off, we will warn about this only.
 - Remove: Will remove any light fixtures in the chasers that would override what is set on the scene in that group. I.E If the scene has a Spotlight on, but a chaser turns the spotlight on and off, we will remove the spotlight from the chaser.
-
 ### export.js
 
 Run with "node export.js" and it will:
