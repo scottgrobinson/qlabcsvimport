@@ -5,7 +5,7 @@ const fs = require("fs"),
 
 var qlabworkspaceid = "";
 var progresBarActive = false;
-var warningsDuringCreate = [];
+var warnings = [];
 
 /**
  * Converts timestamps to seconds.microsends
@@ -73,7 +73,7 @@ async function combineSceneFixtures(sceneList) {
     if (!("lightstring" in lightCues[sceneName])) {
       lightCues[sceneName]["lightstring"] = await qlabCue.getLightString(lightCues[sceneName]["number"]);
       if (!lightCues[sceneName]["lightstring"]) {
-        showErrorAndExit(`Light string blank for ${lightCues[sceneName]}`);
+        showErrorAndExit(`Light string blank for ${sceneName}`);
       }
     }
 
@@ -87,7 +87,7 @@ async function combineSceneFixtures(sceneList) {
         if (fixtureValue >= fixturesInScene[fixture]) {
           fixturesInScene[fixture] = fixtureValue;
         } else {
-          warningsDuringCreate.push(`Dropping fixture ${fixture} from ${sceneList[scene]} as ${fixtureValue} < ${fixturesInScene[fixture]} (Combined scenes ${sceneList.join(", ")})`);
+          warnings.push(`Dropping fixture ${fixture} from ${sceneList[scene]} as ${fixtureValue} < ${fixturesInScene[fixture]} (Combined scenes ${sceneList.join(", ")})`);
         }
       }
     }
@@ -119,7 +119,7 @@ async function createCueFromScene(groupKey, sceneName, start) {
   if (!("lightstring" in lightCues[sceneName])) {
     lightCues[sceneName]["lightstring"] = await qlabCue.getLightString(lightCues[sceneName]["number"]);
     if (!lightCues[sceneName]["lightstring"]) {
-      showErrorAndExit(`Light string blank for ${lightCues[sceneName]}`);
+      showErrorAndExit(`Light string blank for ${sceneName}`);
     }
   }
 
@@ -164,9 +164,9 @@ async function createCueFromChaser(groupKey, chaserName, start, duration, existi
           if (fixture in existingFixtures) {
             if (chaseFixtureRemovalOnMatchingFixture) {
               delete fixtureList[fixture];
-              warningsDuringCreate.push(`Chase "${statedata["name"]}" (start ${start} / duration ${duration}) fixture ${fixture} was removed as it would have overridden the scene ${existingFixturesSceneName}`);
+              warnings.push(`Chase "${statedata["name"]}" (start ${start} / duration ${duration}) fixture ${fixture} was removed as it would have overridden the scene ${existingFixturesSceneName}`);
             } else {
-              warningsDuringCreate.push(`Chase "${statedata["name"]}" (start ${start} / duration ${duration}) fixture ${fixture} will override the scene ${existingFixturesSceneName}`);
+              warnings.push(`Chase "${statedata["name"]}" (start ${start} / duration ${duration}) fixture ${fixture} will override the scene ${existingFixturesSceneName}`);
             }
           }
         }
@@ -317,6 +317,7 @@ function combineCuesByStartAndDuration(incomingData) {
  */
 async function generateInternalLightCueList(masterCueLists, lightcuelistcachefile) {
   lightCues = {};
+  var errors = [];
 
   const cuelistGenerationStart = new Date();
   for (masterCueList of masterCueLists) {
@@ -324,6 +325,11 @@ async function generateInternalLightCueList(masterCueLists, lightcuelistcachefil
       for (lightParentCueList of masterCueList["cues"]) {
         for (lightChildCueList of lightParentCueList["cues"]) {
           if (["Scenes (Inc. All Off)", "Chases"].includes(lightParentCueList["listName"])) {
+            if (lightChildCueList["listName"] in lightCues) {
+              errors.push(`"${lightChildCueList["listName"]}" exists more than once. Please ensure all light cues are individually named.`);
+              continue;
+            }
+
             lightCues[lightChildCueList["listName"]] = {};
             if (lightParentCueList["listName"] == "Scenes (Inc. All Off)") {
               lightCues[lightChildCueList["listName"]]["type"] = "Scenes";
@@ -332,11 +338,23 @@ async function generateInternalLightCueList(masterCueLists, lightcuelistcachefil
             }
             lightCues[lightChildCueList["listName"]]["id"] = lightChildCueList["uniqueID"];
             lightCues[lightChildCueList["listName"]]["number"] = lightChildCueList["number"];
+
+            if (lightChildCueList["number"] == '') {
+              errors.push(`"${lightChildCueList["listName"]}" has no number. Please ensure all light cues have a number.`);
+              continue;
+            }
+
             if (lightParentCueList["listName"] == "Chases") {
               lightCues[lightChildCueList["listName"]]["chasestates"] = [];
               for (chaseCue of lightChildCueList["cues"]) {
                 // We'll make the Loop Group/Reset ourself rather than try and copy it
                 if (chaseCue["name"] != "Loop" && chaseCue["name"] != "Loop Group/Reset") {
+
+                  if (chaseCue["number"] == '') {
+                    errors.push(`"${chaseCue["name"]}" has no number. Please ensure all light cues have a number.`);
+                    continue;
+                  }
+
                   stateData = {
                     name: chaseCue["name"],
                     id: chaseCue["uniqueID"],
@@ -355,12 +373,21 @@ async function generateInternalLightCueList(masterCueLists, lightcuelistcachefil
     }
   }
 
-  fs.writeFileSync(lightcuelistcachefile, JSON.stringify(lightCues));
+  if (errors.length > 0) {
+    for (error in errors) {
+      console.log(`\x1b[31m[Error] - ${errors[error]}\x1b[0m`);
+    }
+    console.log("\n\x1b[31mExiting...\x1b[0m")
+    process.exit(1)
+  } else {
+    fs.writeFileSync(lightcuelistcachefile, JSON.stringify(lightCues));
 
-  const cuelistGenerationEnd = new Date();
-  console.log(`Finished generating light cue list - Took ${(cuelistGenerationEnd - cuelistGenerationStart) / 1000} seconds\n`);
+    const cuelistGenerationEnd = new Date();
+    console.log(`Finished generating light cue list - Took ${(cuelistGenerationEnd - cuelistGenerationStart) / 1000} seconds\n`);
 
-  return lightCues;
+    return lightCues;
+  }
+
 }
 
 /**
@@ -439,8 +466,8 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
         // Create a group containing all of the chasers
         parent = await createGroup(cueName);
 
-        if (lfxlist.length > 1) {
-          warningsDuringCreate.push(`More than two chases (${lfxlist.join(", ")}) are combined in a group (start ${start} / duration ${duration}). You will need to manually check no fixtures overlap.`);
+        if (lfxlist.length > 0) {
+          warnings.push(`More than two chases (${lfxlist.join(", ")}) are combined in a group (start ${start} / duration ${duration}). You will need to manually check no fixtures overlap.`);
         }
 
         for (lfx in lfxlist) {
@@ -471,7 +498,7 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
         await qlabCue.move(newcue, parent);
 
         if (chaseList.length > 1) {
-          warningsDuringCreate.push(`More than two chases (${chaseList.join(", ")}) are combined in a group (start ${start} / duration ${duration}). You will need to manually check no fixtures overlap.`);
+          warnings.push(`More than two chases (${chaseList.join(", ")}) are combined in a group (start ${start} / duration ${duration}). You will need to manually check no fixtures overlap.`);
         }
 
         for (chase in chaseList) {
@@ -486,10 +513,10 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
   progressBar.stop();
   progresBarActive = false;
 
-  if (warningsDuringCreate) {
+  if (warnings.length > 0) {
     console.log("\n");
-    for (warning in warningsDuringCreate) {
-      console.log(`\x1b[33m[Warning] - ${warningsDuringCreate[warning]}\x1b[0m`);
+    for (warning in warnings) {
+      console.log(`\x1b[33m[Warning] - ${warnings[warning]}\x1b[0m`);
     }
   }
 }
