@@ -114,8 +114,9 @@ async function createGroup(groupKey) {
  * @param {string} groupKey The key of the group to move the scene into
  * @param {string} sceneName The name of the scene to use
  * @param {string} start The start time of the cue (sss.mmm)
+ * @param {string} cueID The ID of the scene to use (can be null so the ID is auto generated)
  */
-async function createCueFromScene(groupKey, sceneName, start) {
+async function createCueFromScene(groupKey, sceneName, start, cueID) {
   if (!("lightstring" in lightCues[sceneName])) {
     lightCues[sceneName]["lightstring"] = await qlabCue.getLightString(lightCues[sceneName]["number"]);
     if (!lightCues[sceneName]["lightstring"]) {
@@ -124,6 +125,9 @@ async function createCueFromScene(groupKey, sceneName, start) {
   }
 
   let newcue = await qlabCue.create("light");
+  if (cueID) {
+    await qlabCue.setNumber("selected", cueID);
+  }
   await qlabCue.setName("selected", sceneName);
   await qlabCue.setLightString("selected", lightCues[sceneName]["lightstring"]);
   await qlabCue.setDuration("selected", "00.000");
@@ -140,10 +144,15 @@ async function createCueFromScene(groupKey, sceneName, start) {
  * @param {array} existingFixtures List of existing fixtures in use when added to a group with scenes
  * @param {boolean} chaseFixtureRemovalOnMatchingFixture Remove fixtures from a chase if combined in a group with a scene that has a fixture contained within the chase
  * @param {string} existingFixturesSceneName The name of the scene where existingFixtures are taken from
+ * @param {string} cueID The ID of the chaser to use (can be null so the ID is auto generated)
  */
-async function createCueFromChaser(groupKey, chaserName, start, duration, existingFixtures, chaseFixtureRemovalOnMatchingFixture, existingFixturesSceneName) {
+async function createCueFromChaser(groupKey, chaserName, start, duration, existingFixtures, chaseFixtureRemovalOnMatchingFixture, existingFixturesSceneName, cueID) {
   const parentChaseGroupKey = await createGroup(chaserName + " CONTAINER");
   await qlabCue.setPreWait("selected", await start);
+
+  if (cueID) {
+    await qlabCue.setNumber("selected", cueID);
+  }
 
   const chasegroupKey = await createGroup(chaserName);
   await qlabCue.setMode("selected", 1);
@@ -324,14 +333,14 @@ async function generateInternalLightCueList(masterCueLists, lightcuelistcachefil
     if (masterCueList["listName"] == "Light Cues") {
       for (lightParentCueList of masterCueList["cues"]) {
         for (lightChildCueList of lightParentCueList["cues"]) {
-          if (["Scenes (Inc. All Off)", "Chases"].includes(lightParentCueList["listName"])) {
+          if (["Scenes", "Chases"].includes(lightParentCueList["listName"])) {
             if (lightChildCueList["listName"] in lightCues) {
               errors.push(`"${lightChildCueList["listName"]}" exists more than once. Please ensure all light cues are individually named.`);
               continue;
             }
 
             lightCues[lightChildCueList["listName"]] = {};
-            if (lightParentCueList["listName"] == "Scenes (Inc. All Off)") {
+            if (lightParentCueList["listName"] == "Scenes") {
               lightCues[lightChildCueList["listName"]]["type"] = "Scenes";
             } else if (lightParentCueList["listName"] == "Chases") {
               lightCues[lightChildCueList["listName"]]["type"] = "Chases";
@@ -396,10 +405,24 @@ async function generateInternalLightCueList(masterCueLists, lightcuelistcachefil
  * @param {string} fileName The filename of the CSV used to determine the group title
  * @param {array} csvData Array of data from CSV file
  * @param {boolean} chaseFixtureRemovalOnMatchingFixture Remove fixtures from a chase if combined in a group with a scene that has a fixture contained within the chase
- */
-async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFixture) {
-  // Group cues by start time and duration
-  let combinedCues = combineCuesByStartAndDuration(csvData);
+ * @param {boolean} csvType Wether the CSV is a "song" CSV (from an Audition export) (true), or a "show" CSV (false)
+*/
+async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFixture, csvType) {
+  if (csvType) {
+    // CSV Type is Song
+    // Group cues by start time and duration
+    combinedCues = combineCuesByStartAndDuration(csvData);
+  } else {
+    // CSV Type is Show
+    combinedCues = {}
+    for (cue in csvData) {
+      if (csvData[cue][0] in combinedCues) {
+        combinedCues[csvData[cue][0]].push(csvData[cue][1])
+      } else {
+        combinedCues[csvData[cue][0]] = [csvData[cue][1]]
+      }
+    }
+  }
 
   // Find the temporary "dump" cue list and exit if doesn't exist
   dumpcuelistid = false;
@@ -424,20 +447,40 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
     cliProgress.Presets.shades_classic
   );
   progresBarActive = true;
-  progressBar.start(combinedCues.length);
+
+  if (csvType) {
+    // CSV Type is Song
+    progressBar.start(combinedCues.length);
+  } else {
+    // CSV Type is Show
+    progressBar.start(Object.keys(combinedCues).length);
+  }
+
+  let loopCounter = 1
   for (cue in combinedCues) {
-    progressBar.update(parseInt(cue) + 1 / 2);
-    const lfxlist = combinedCues[cue][0];
-    const start = combinedCues[cue][1];
-    const duration = combinedCues[cue][2];
+    progressBar.update(loopCounter);
+    if (csvType) {
+      // CSV Type is Song
+      // Group cues by start time and duration
+      cueid = null;
+      lfxlist = combinedCues[cue][0];
+      start = combinedCues[cue][1];
+      duration = combinedCues[cue][2];
+    } else {
+      // CSV Type is Show
+      cueid = cue;
+      lfxlist = combinedCues[cue];
+      start = "00.00"
+      duration = "00.00"
+    }
 
     // If there is only one light in the cue, we don't need to get fancy...
     // Otherwise, we'll get fancy and combine them!
     if (lfxlist.length == 1) {
       if (lightCues[lfxlist[0]]["type"] == "Scenes") {
-        await createCueFromScene(groupKey, lfxlist[0], start);
+        await createCueFromScene(groupKey, lfxlist[0], start, cueid);
       } else if (lightCues[lfxlist[0]]["type"] == "Chases") {
-        await createCueFromChaser(groupKey, lfxlist[0], start, duration, null, false, null);
+        await createCueFromChaser(groupKey, lfxlist[0], start, duration, null, false, null, cueid);
       }
     } else {
       // Determine if we've got multiple cues of the same type, or mixed (I.E Scenes, Chasers or Scenes & Chasers)
@@ -458,6 +501,11 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
         // Create a scene with all of the lights combined
         let newcue = await qlabCue.create("light");
         await qlabCue.setName("selected", cueName);
+
+        if (cueid) {
+          await qlabCue.setNumber("selected", cueid);
+        }
+
         await qlabCue.setLightString("selected", listOfFixturesToStringOfFixtures(await combineSceneFixtures(lfxlist)));
         await qlabCue.setDuration("selected", "00.000");
         await qlabCue.setPreWait("selected", start);
@@ -471,12 +519,16 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
         }
 
         for (lfx in lfxlist) {
-          await createCueFromChaser(parent, lfxlist[lfx], start, duration, null, false, null);
+          await createCueFromChaser(parent, lfxlist[lfx], start, duration, null, false, null, cueid);
         }
         await qlabCue.move(parent, groupKey);
       } else if (type == "Mixed") {
         // Create a group containing the scenes & chasers
         parent = await createGroup(cueName);
+
+        if (cueid) {
+          await qlabCue.setNumber("selected", cueid);
+        }
 
         sceneList = [];
         chaseList = [];
@@ -502,13 +554,13 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
         }
 
         for (chase in chaseList) {
-          await createCueFromChaser(parent, chaseList[chase], start, duration, lightsInScene, chaseFixtureRemovalOnMatchingFixture, sceneName);
+          await createCueFromChaser(parent, chaseList[chase], start, duration, lightsInScene, chaseFixtureRemovalOnMatchingFixture, sceneName, null);
         }
 
         await qlabCue.move(parent, groupKey);
       }
     }
-    progressBar.update(parseInt(cue) + 1);
+    loopCounter = loopCounter + 1
   }
   progressBar.stop();
   progresBarActive = false;

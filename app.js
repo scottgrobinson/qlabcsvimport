@@ -38,6 +38,14 @@ let existingSettings = (function () {
             format: csvfilepath => csvfilepath
           },
           {
+            type: 'toggle',
+            name: 'csvType',
+            message: `CSV Type:`,
+            initial: 'csvType' in existingSettings ? existingSettings['csvType'] : true,
+            active: 'song',
+            inactive: 'show'
+          },
+          {
             type: 'text',
             name: 'qlabip',
             message: `qLab IP:`,
@@ -97,23 +105,34 @@ let existingSettings = (function () {
   }
 
   if (Object.keys(lightCues).length == 0) {
-    helper.showErrorAndExit('Unable to find light cues. Ensure \'Light Cues > Scenes (Inc. All Off)\' & \'Light Cues > Chases\' cue lists exist')
+    helper.showErrorAndExit('Unable to find light cues. Ensure \'Light Cues > Scenes\' & \'Light Cues > Chases\' cue lists exist')
   }
 
   // Start processing the CSV data
   let csvoutput = []
   let rowcount = 1
   let validationErrors = []
+
+  if (settings['csvType']) {
+    // CSV Type is Song
+    csvDelimiter = '\t';
+    csvLfxNameField = 0;
+  } else {
+    // CSV Type is Show
+    csvDelimiter = ','
+    csvLfxNameField = 1;
+  }
+
   fs.createReadStream(settings['csvfilepath'])
     .on('error', (error) => {
       helper.showErrorAndExit(`Unable to import - ${error}`)
     })
     .pipe(parse({
-      delimiter: '\t'
+      delimiter: csvDelimiter
     }))
     // On every row, validate the data
     .on('data', (row) => {
-      let lfxname = row[0].trim()
+      let lfxname = row[csvLfxNameField].trim()
 
       if (rowcount != 1) {
         if (!(Object.keys(lightCues).includes(lfxname))) {
@@ -130,7 +149,7 @@ let existingSettings = (function () {
         const scriptStart = new Date()
 
         console.log('Starting processing...\n')
-        await helper.processCSVData(settings['csvfilepath'], csvoutput, settings['chaseFixtureRemovalOnMatchingFixture'])
+        await helper.processCSVData(settings['csvfilepath'], csvoutput, settings['chaseFixtureRemovalOnMatchingFixture'], settings['csvType'])
         const scriptEnd = new Date()
         console.log(`\nFinished processing - Took ${(scriptEnd - scriptStart) / 1000} seconds`)
 

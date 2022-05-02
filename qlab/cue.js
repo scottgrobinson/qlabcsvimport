@@ -95,6 +95,18 @@ function setTargetID(cue, target) {
 }
 
 /**
+ * Sets the number/ID of the specified cue
+ * @param {string} cue The cue to set the number/ID on
+ * @param {string} number The number/ID to set
+ * @returns {Promise}
+ */
+function setNumber(cue, number) {
+    return new Promise(resolve => {
+        resolve(core.sendMessage(`/cue/${cue}/number`, { "type": 's', "value": number }))
+    });
+}
+
+/**
  * Sets the duration on the specified cue
  * @param {string} cue The cue to set the duration on
  * @param {number} duration The duration to set
@@ -193,6 +205,7 @@ module.exports.selectById = selectById
 module.exports.selectByNumber = selectByNumber
 module.exports.setContinueMode = setContinueMode
 module.exports.setTargetID = setTargetID
+module.exports.setNumber = setNumber
 module.exports.setDuration = setDuration
 module.exports.getDuration = getDuration
 module.exports.setPreWait = setPreWait
