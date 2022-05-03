@@ -405,15 +405,12 @@ async function generateInternalLightCueList(masterCueLists, lightcuelistcachefil
  * @param {string} fileName The filename of the CSV used to determine the group title
  * @param {array} csvData Array of data from CSV file
  * @param {boolean} chaseFixtureRemovalOnMatchingFixture Remove fixtures from a chase if combined in a group with a scene that has a fixture contained within the chase
- * @param {boolean} csvType Wether the CSV is a "song" CSV (from an Audition export) (true), or a "show" CSV (false)
+ * @param {boolean} csvType Wether the CSV is a "song" CSV (from an Audition export), or a "show" CSV
 */
 async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFixture, csvType) {
-  if (csvType) {
-    // CSV Type is Song
-    // Group cues by start time and duration
+  if (csvType == "song") {
     combinedCues = combineCuesByStartAndDuration(csvData);
-  } else {
-    // CSV Type is Show
+  } else if (csvType == "show") {
     combinedCues = {}
     for (cue in csvData) {
       if (csvData[cue][0] in combinedCues) {
@@ -448,26 +445,22 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
   );
   progresBarActive = true;
 
-  if (csvType) {
-    // CSV Type is Song
+  if (csvType == "song") {
     progressBar.start(combinedCues.length);
-  } else {
-    // CSV Type is Show
+  } else if (csvType == "show") {
     progressBar.start(Object.keys(combinedCues).length);
   }
 
   let loopCounter = 1
   for (cue in combinedCues) {
     progressBar.update(loopCounter);
-    if (csvType) {
-      // CSV Type is Song
+    if (csvType == "song") {
       // Group cues by start time and duration
       cueid = null;
       lfxlist = combinedCues[cue][0];
       start = combinedCues[cue][1];
       duration = combinedCues[cue][2];
-    } else {
-      // CSV Type is Show
+    } else if (csvType == "show") {
       cueid = cue;
       lfxlist = combinedCues[cue];
       start = "00.00"

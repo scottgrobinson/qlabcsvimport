@@ -28,6 +28,11 @@ let existingSettings = (function () {
           process.exit(1)
         }
 
+        csvTypes = [
+          { title: 'Song', value: 'song' },
+          { title: 'Show', value: 'show' }
+        ]
+
         return resolve(await prompts([
           {
             type: 'text',
@@ -38,12 +43,11 @@ let existingSettings = (function () {
             format: csvfilepath => csvfilepath
           },
           {
-            type: 'toggle',
+            type: 'select',
             name: 'csvType',
-            message: `CSV Type:`,
-            initial: 'csvType' in existingSettings ? existingSettings['csvType'] : true,
-            active: 'song',
-            inactive: 'show'
+            message: 'CSV Type:',
+            choices: csvTypes,
+            initial: 'csvType' in existingSettings ? csvTypes.findIndex(x => x.value === existingSettings['csvType']) : 1,
           },
           {
             type: 'text',
@@ -113,12 +117,10 @@ let existingSettings = (function () {
   let rowcount = 1
   let validationErrors = []
 
-  if (settings['csvType']) {
-    // CSV Type is Song
+  if (settings['csvType'] == "song") {
     csvDelimiter = '\t';
     csvLfxNameField = 0;
-  } else {
-    // CSV Type is Show
+  } else if (settings['csvType'] == "show") {
     csvDelimiter = ','
     csvLfxNameField = 1;
   }
