@@ -1,0 +1,68 @@
+Name	Start	Duration	Time Format	Type	Description
+LFX - BLACKOUT	02:05.7	00:02.1	decimal	Cue	
+LFX - FULL WASH	02:04.9	00:00.8	decimal	Cue	
+LFX - FULL STAGE WASH	02:02.4	00:02.5	decimal	Cue	
+LFX - HALF TAB WASH	01:58.4	00:04.0	decimal	Cue	
+LFX - RED STAGE PULSE	01:58.4	00:04.0	decimal	Cue	
+LFX - FULL TAB WASH	01:58.4	00:04.0	decimal	Cue	
+LFX - CS SPOT	01:54.4	00:04.0	decimal	Cue	
+LFX - FULL TAB WASH	01:54.4	00:04.0	decimal	Cue	
+LFX - COLOUR SCROLL	01:54.4	00:04.0	decimal	Cue	
+LFX - CS SPOT	01:50.4	00:04.0	decimal	Cue	
+LFX - MULTICOLOUR FLOOD WASH	01:50.4	00:04.0	decimal	Cue	
+LFX - FULL TAB WASH	01:50.4	00:04.0	decimal	Cue	
+LFX - PARTY CHASE	01:38.9	00:11.5	decimal	Cue	
+LFX - FULL STAGE WASH	01:38.4	00:00.4	decimal	Cue	
+LFX - ATMOS WASH	01:37.4	00:01.0	decimal	Cue	
+LFX - FULL TAB WASH	01:37.4	00:01.0	decimal	Cue	
+LFX - TAB CHASE	01:37.4	00:01.0	decimal	Cue	
+LFX - PARTY CHASE	01:22.4	00:15.0	decimal	Cue	
+LFX - CS WASH	01:14.4	00:08.0	decimal	Cue	
+LFX - COLOUR SCROLL	01:14.4	00:08.0	decimal	Cue	
+LFX - FULL TAB WASH	01:14.4	00:08.0	decimal	Cue	
+LFX - ATMOS WASH	01:14.4	00:08.0	decimal	Cue	
+LFX - FORMATION CHASE	01:08.4	00:06.1	decimal	Cue	
+LFX - HALF STAGE WASH	01:08.4	00:06.1	decimal	Cue	
+LFX - FLASHING	01:06.4	00:02.0	decimal	Cue	
+LFX - HALF STAGE WASH	01:06.4	00:02.0	decimal	Cue	
+LFX - FULL STAGE WASH	01:01.9	00:04.5	decimal	Cue	
+LFX - CS SPOT	01:01.4	00:00.5	decimal	Cue	
+LFX - LIGHT FORMATION 2	01:01.4	00:00.5	decimal	Cue	
+LFX - CS SPOT	01:00.6	00:00.8	decimal	Cue	
+LFX - LIGHT FORMATION 1	01:00.6	00:00.8	decimal	Cue	
+LFX - CS SPOT	00:58.4	00:02.3	decimal	Cue	
+LFX - MULTICOLOUR FLOOD WASH	00:54.4	00:04.0	decimal	Cue	
+LFX - FULL TAB WASH	00:54.4	00:04.0	decimal	Cue	
+LFX - ATMOS WASH	00:54.4	00:04.0	decimal	Cue	
+LFX - CS SPOT	00:52.2	00:02.2	decimal	Cue	
+LFX - ATMOS WASH	00:52.2	00:02.2	decimal	Cue	
+LFX - FULL STAGE WASH	00:51.4	00:00.8	decimal	Cue	
+LFX - CS SPOT	00:42.2	00:09.2	decimal	Cue	
+LFX - BLUE FLOOD WASH	00:42.2	00:09.2	decimal	Cue	
+LFX - ATMOS WASH	00:34.4	00:07.8	decimal	Cue	
+LFX - FULL TAB WASH	00:34.4	00:07.8	decimal	Cue	
+LFX - FULL TAB WASH	00:30.4	00:04.0	decimal	Cue	
+LFX - MULTICOLOUR FLOOD WASH	00:30.4	00:04.0	decimal	Cue	
+LFX - WITCH SPOT	00:29.4	00:01.0	decimal	Cue	
+LFX - TICK TICK BOOM	00:29.4	00:01.0	decimal	Cue	
+LFX - LOW TAB WASH	00:26.4	00:03.0	decimal	Cue	
+LFX - RED STAGE WASH	00:26.4	00:03.0	decimal	Cue	
+LFX - WITCH SPOT	00:26.4	00:03.0	decimal	Cue	
+LFX - HALF STAGE WASH	00:22.4	00:04.0	decimal	Cue	
+LFX - WITCH SPOT	00:22.4	00:04.0	decimal	Cue	
+LFX - MULTICOLOUR FLOOD WASH	00:22.4	00:04.0	decimal	Cue	
+LFX - EVIL WASH	00:21.1	00:01.3	decimal	Cue	
+LFX - TAB CHASE	00:21.1	00:01.3	decimal	Cue	
+LFX - WITCH SPOT	00:21.1	00:01.3	decimal	Cue	
+LFX - WITCH SPOT	00:18.4	00:02.7	decimal	Cue	
+LFX - EVIL WASH	00:18.4	00:02.7	decimal	Cue	
+LFX - MULTICOLOUR FLOOD WASH	00:14.4	00:04.0	decimal	Cue	
+LFX - CS SPOT	00:14.4	00:04.0	decimal	Cue	
+LFX - FULL STAGE WASH	00:10.9	00:03.4	decimal	Cue	
+LFX - FULL TAB WASH	00:10.4	00:04.0	decimal	Cue	
+LFX - ATMOS WASH	00:04.2	00:06.2	decimal	Cue	
+LFX - CS SPOT	00:04.2	00:06.2	decimal	Cue	
+LFX - ATMOS WASH	00:04.2	00:06.2	decimal	Cue	
+LFX - FULL TAB WASH	00:02.9	00:01.4	decimal	Cue	
+LFX - ATMOS WASH	00:02.9	00:01.4	decimal	Cue	
+LFX - FULL WASH	00:02.4	00:00.5	decimal	Cue	
