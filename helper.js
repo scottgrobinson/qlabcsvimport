@@ -2,6 +2,7 @@ const fs = require("fs"),
   path = require("path"),
   cliProgress = require("cli-progress"),
   qlabCue = require("./qlab/cue.js");
+const { exit } = require("process");
 
 var qlabworkspaceid = "";
 var progresBarActive = false;
@@ -116,7 +117,7 @@ async function createGroup(groupKey) {
  * @param {string} start The start time of the cue (sss.mmm)
  * @param {string} cueID The ID of the scene to use (can be null so the ID is auto generated)
  */
-async function createCueFromScene(groupKey, sceneName, start, cueID) {
+async function createLightCueFromScene(groupKey, sceneName, start, cueID) {
   if (!("lightstring" in lightCues[sceneName])) {
     lightCues[sceneName]["lightstring"] = await qlabCue.getLightString(lightCues[sceneName]["number"]);
     if (!lightCues[sceneName]["lightstring"]) {
@@ -130,6 +131,28 @@ async function createCueFromScene(groupKey, sceneName, start, cueID) {
   }
   await qlabCue.setName("selected", sceneName);
   await qlabCue.setLightString("selected", lightCues[sceneName]["lightstring"]);
+  await qlabCue.setDuration("selected", "00.000");
+  await qlabCue.setPreWait("selected", await start);
+  await qlabCue.move(newcue, groupKey);
+}
+
+/**
+ * XX
+ * @param {string} groupKey The key of the group to move the network cue into
+ * @param {string} commandPatch XX
+ * @param {string} cueName XX
+ * @param {string} command XX
+ * @param {string} start The start time of the cue (sss.mmm)
+ * @param {string} cueID XX
+ */
+async function createOSCCueFromString(groupKey, commandPatch, cueLabel, command, start, cueID) {
+  let newcue = await qlabCue.create("network");
+  if (cueID) {
+    await qlabCue.setNumber("selected", cueID);
+  }
+  await qlabCue.setName("selected", cueLabel);
+  await qlabCue.setNetworkString("selected", command);
+  await qlabCue.setNetworkPatch("selected", parseInt(commandPatch));
   await qlabCue.setDuration("selected", "00.000");
   await qlabCue.setPreWait("selected", await start);
   await qlabCue.move(newcue, groupKey);
@@ -215,6 +238,10 @@ async function createCueFromChaser(groupKey, chaserName, start, duration, existi
   const splitLightString = fixturesettingstouse.split("\n");
   fixturesInScene = [];
   for (light in splitLightString) {
+    // If we have blank lines, sometimes caused by using the "text" view when editing lights, ignore the blank line
+    if (!splitLightString[light]) {
+      continue
+    }
     fixtureSetting = splitLightString[light].split("=")[0].trim();
     fixtureValue = parseInt(splitLightString[light].split("=")[1].trim());
     if (!(fixtureSetting in fixturesInScene)) {
@@ -233,11 +260,11 @@ async function createCueFromChaser(groupKey, chaserName, start, duration, existi
     }
   }
 
-  lightcue = await qlabCue.create("light");
-  await qlabCue.setDuration("selected", "00.00");
-  await qlabCue.setLightString("selected", listOfFixturesToStringOfFixtures(resetFixtures));
-  await qlabCue.setName("selected", `Reset ${lastfixturename} `);
-  await qlabCue.move(lightcue, loopgroup);
+  //lightcue = await qlabCue.create("light");
+  //await qlabCue.setDuration("selected", "00.00");
+  //await qlabCue.setLightString("selected", listOfFixturesToStringOfFixtures(resetFixtures));
+  //await qlabCue.setName("selected", `Reset ${lastfixturename} `);
+  //await qlabCue.move(lightcue, loopgroup);
 
   await qlabCue.move(loopgroup, chasegroupKey);
 
@@ -268,14 +295,14 @@ async function createCueFromChaser(groupKey, chaserName, start, duration, existi
 function combineCuesByStartAndDuration(incomingData) {
   const newData = [];
   for (row in incomingData) {
-    const lfxname = incomingData[row][0];
+    const cuename = incomingData[row][0];
     const start = parseFloat(processTimestamp(incomingData[row][1])).toFixed(2);
     const duration = parseFloat(processTimestamp(incomingData[row][2])).toFixed(2);
     const end = (parseFloat(start) + parseFloat(duration)).toFixed(2);
     if (typeof newData[newData.length - 1] !== "undefined" && newData[newData.length - 1][1] == start && newData[newData.length - 1][2] == duration) {
-      newData[newData.length - 1][0].push(lfxname);
+      newData[newData.length - 1][0].push(cuename);
     } else {
-      newData.push([[lfxname], start, duration, end]);
+      newData.push([[cuename], start, duration, end]);
     }
   }
 
@@ -286,16 +313,16 @@ function combineCuesByStartAndDuration(incomingData) {
     parentitemno = item;
     for (item in newData) {
       if (parseFloat(newData[item][1]) >= parseFloat(parentitem[1]) && parseFloat(newData[item][3]) < parseFloat(parentitem[3])) {
-        // Create list of lfxnames
+        // Create list of cuenames
         nameList = [];
-        for (lfxname in parentitem[0]) {
-          if (!nameList.includes(parentitem[0][lfxname])) {
-            nameList.push(parentitem[0][lfxname]);
+        for (cuename in parentitem[0]) {
+          if (!nameList.includes(parentitem[0][cuename])) {
+            nameList.push(parentitem[0][cuename]);
           }
         }
-        for (lfxname in newData[item][0]) {
-          if (!nameList.includes(newData[item][0][lfxname])) {
-            nameList.push(newData[item][0][lfxname]);
+        for (cuename in newData[item][0]) {
+          if (!nameList.includes(newData[item][0][cuename])) {
+            nameList.push(newData[item][0][cuename]);
           }
         }
         newData3.push([nameList, newData[item][1], newData[item][2], newData[item][3]]);
@@ -457,39 +484,63 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
     if (csvType == "song") {
       // Group cues by start time and duration
       cueid = null;
-      lfxlist = combinedCues[cue][0];
+      cuelist = combinedCues[cue][0];
       start = combinedCues[cue][1];
       duration = combinedCues[cue][2];
     } else if (csvType == "show") {
       cueid = cue;
-      lfxlist = combinedCues[cue];
+      cuelist = combinedCues[cue];
       start = "00.00"
       duration = "00.00"
     }
 
     // If there is only one light in the cue, we don't need to get fancy...
     // Otherwise, we'll get fancy and combine them!
-    if (lfxlist.length == 1) {
-      if (lightCues[lfxlist[0]]["type"] == "Scenes") {
-        await createCueFromScene(groupKey, lfxlist[0], start, cueid);
-      } else if (lightCues[lfxlist[0]]["type"] == "Chases") {
-        await createCueFromChaser(groupKey, lfxlist[0], start, duration, null, false, null, cueid);
+    if (cuelist.length == 1) {
+      if (cuelist[0].startsWith("OSC -")) {
+        oscvars = cuelist[0].split("___")
+        commanddestination = oscvars[0].replace('OSC - ', '')
+        cuelabel = oscvars[1]
+        command = oscvars[2]
+        await createOSCCueFromString(groupKey, commanddestination, cuelabel, command, start, cueid);
+      } else if (lightCues[cuelist[0]]["type"] == "Scenes") {
+        await createLightCueFromScene(groupKey, cuelist[0], start, cueid);
+      } else if (lightCues[cuelist[0]]["type"] == "Chases") {
+        await createCueFromChaser(groupKey, cuelist[0], start, duration, null, false, null, cueid);
       }
     } else {
       // Determine if we've got multiple cues of the same type, or mixed (I.E Scenes, Chasers or Scenes & Chasers)
       let type = "";
-      for (lfx in lfxlist) {
-        if (lfx == 0) {
-          type = lightCues[lfxlist[lfx]]["type"];
+      for (cue in cuelist) {
+        if (cue == 0) {
+          if (cuelist[cue].startsWith("OSC -")) {
+            type = "OSC"
+          } else {
+            type = lightCues[cuelist[cue]]["type"];
+          }
         } else {
-          if (lightCues[lfxlist[lfx]]["type"] != type) {
+          if (cuelist[cue].startsWith("OSC -")) {
+            cuetype = "OSC"
+          } else {
+            cuetype = lightCues[cuelist[cue]]["type"]
+          }
+          if (cuetype != type) {
             type = "Mixed";
             break;
           }
         }
       }
 
-      cueName = lfxlist.join(" + ");
+      formattedCueNames = []
+      for (cue in cuelist) {
+        if (cuelist[cue].startsWith("OSC -")) {
+          formattedCueNames.push(cuelist[cue].split("___")[1])
+        } else {
+          formattedCueNames.push(cuelist[cue])
+        }
+      }
+      cueName = formattedCueNames.join(" + ");
+
       if (type == "Scenes") {
         // Create a scene with all of the lights combined
         let newcue = await qlabCue.create("light");
@@ -499,7 +550,7 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
           await qlabCue.setNumber("selected", cueid);
         }
 
-        await qlabCue.setLightString("selected", listOfFixturesToStringOfFixtures(await combineSceneFixtures(lfxlist)));
+        await qlabCue.setLightString("selected", listOfFixturesToStringOfFixtures(await combineSceneFixtures(cuelist)));
         await qlabCue.setDuration("selected", "00.000");
         await qlabCue.setPreWait("selected", start);
         await qlabCue.move(newcue, groupKey);
@@ -507,15 +558,15 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
         // Create a group containing all of the chasers
         parent = await createGroup(cueName);
 
-        if (lfxlist.length > 0) {
-          warnings.push(`More than two chases (${lfxlist.join(", ")}) are combined in a group (start ${start} / duration ${duration}). You will need to manually check no fixtures overlap.`);
+        if (cuelist.length > 0) {
+          warnings.push(`More than two chases (${cuelist.join(", ")}) are combined in a group (start ${start} / duration ${duration}). You will need to manually check no fixtures overlap.`);
         }
 
-        for (lfx in lfxlist) {
-          await createCueFromChaser(parent, lfxlist[lfx], start, duration, null, false, null, cueid);
+        for (lfx in cuelist) {
+          await createCueFromChaser(parent, cuelist[lfx], start, duration, null, false, null, cueid);
         }
         await qlabCue.move(parent, groupKey);
-      } else if (type == "Mixed") {
+      } else if (type == "Mixed" || type == "OSC") {
         // Create a group containing the scenes & chasers
         parent = await createGroup(cueName);
 
@@ -523,13 +574,16 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
           await qlabCue.setNumber("selected", cueid);
         }
 
+        OSCList = [];
         sceneList = [];
         chaseList = [];
-        for (lfx in lfxlist) {
-          if (lightCues[lfxlist[lfx]]["type"] == "Scenes") {
-            sceneList.push(lfxlist[lfx]);
-          } else if (lightCues[lfxlist[lfx]]["type"] == "Chases") {
-            chaseList.push(lfxlist[lfx]);
+        for (cue in cuelist) {
+          if (cuelist[cue].startsWith("OSC -")) {
+            OSCList.push(cuelist[cue]);
+          } else if (lightCues[cuelist[cue]]["type"] == "Scenes") {
+            sceneList.push(cuelist[cue]);
+          } else if (lightCues[cuelist[cue]]["type"] == "Chases") {
+            chaseList.push(cuelist[cue]);
           }
         }
 
@@ -548,6 +602,14 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
 
         for (chase in chaseList) {
           await createCueFromChaser(parent, chaseList[chase], start, duration, lightsInScene, chaseFixtureRemovalOnMatchingFixture, sceneName, null);
+        }
+
+        for (cue in OSCList) {
+          oscvars = OSCList[cue].split("___")
+          commanddestination = oscvars[0].replace('OSC - ', '')
+          cuelabel = oscvars[1]
+          command = oscvars[2]
+          await createOSCCueFromString(parent, commanddestination, cuelabel, command, start, null);
         }
 
         await qlabCue.move(parent, groupKey);
@@ -582,7 +644,8 @@ function showErrorAndExit(message) {
 module.exports.processTimestamp = processTimestamp;
 module.exports.listOfFixturesToStringOfFixtures = listOfFixturesToStringOfFixtures;
 module.exports.createGroup = createGroup;
-module.exports.createCueFromScene = createCueFromScene;
+module.exports.createLightCueFromScene = createLightCueFromScene;
+module.exports.createOSCCueFromString = createOSCCueFromString;
 module.exports.createCueFromChaser = createCueFromChaser;
 module.exports.stringOfFixturesToListOfFixtures = stringOfFixturesToListOfFixtures;
 module.exports.combineSceneFixtures = combineSceneFixtures;

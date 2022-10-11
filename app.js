@@ -119,10 +119,10 @@ let existingSettings = (function () {
 
   if (settings['csvType'] == "song") {
     csvDelimiter = '\t';
-    csvLfxNameField = 0;
+    csvCueNameField = 0;
   } else if (settings['csvType'] == "show") {
     csvDelimiter = ','
-    csvLfxNameField = 1;
+    csvCueNameField = 1;
   }
 
   fs.createReadStream(settings['csvfilepath'])
@@ -134,11 +134,13 @@ let existingSettings = (function () {
     }))
     // On every row, validate the data
     .on('data', (row) => {
-      let lfxname = row[csvLfxNameField].trim()
+      let cuename = row[csvCueNameField].trim()
 
       if (rowcount != 1) {
-        if (!(Object.keys(lightCues).includes(lfxname))) {
-          validationErrors.push(`'${lfxname}'[Line ${rowcount}] - Could not find cue in qLab with matching name`)
+        if (cuename.startsWith("OSC -")) {
+          csvoutput.push(row)
+        } else if (!(Object.keys(lightCues).includes(cuename))) {
+          validationErrors.push(`'${cuename}' [Line ${rowcount}] - Could not find cue in qLab with matching name`)
         } else {
           csvoutput.push(row)
         }
