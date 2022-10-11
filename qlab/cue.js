@@ -197,6 +197,30 @@ function setLightString(cue, lightstring) {
     });
 }
 
+/**
+ * Sets the network patch on the specified cue
+ * @param {string} cue The cue to set the network patch on
+ * @param {number} networkpatch The network patch to set
+ * @returns {Promise}
+ */
+function setNetworkPatch(cue, networkpatch) {
+    return new Promise(resolve => {
+        resolve(core.sendMessage(`/cue/${cue}/patch`, [{ "type": 'f', "value": networkpatch }]))
+    });
+}
+
+/**
+ * Sets the network string on the specified cue
+ * @param {string} cue The cue to set the network string on
+ * @param {string} networkstring The network string to set
+ * @returns {Promise}
+ */
+function setNetworkString(cue, networkstring) {
+    return new Promise(resolve => {
+        resolve(core.sendMessage(`/cue/${cue}/customString`, [{ "type": 's', "value": networkstring }]))
+    });
+}
+
 module.exports.create = create
 module.exports.move = move
 module.exports.setName = setName
@@ -214,3 +238,5 @@ module.exports.setColor = setColor
 module.exports.list = list
 module.exports.getLightString = getLightString
 module.exports.setLightString = setLightString
+module.exports.setNetworkPatch = setNetworkPatch
+module.exports.setNetworkString = setNetworkString
