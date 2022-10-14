@@ -86,6 +86,9 @@ let existingSettings = (function () {
   }
 
   const settings = await getNewSettings();
+  if (settings['csvfilepath'].slice(0, 1) == '\'' && settings['csvfilepath'].slice(-1) == '\'') {
+    settings['csvfilepath'] = settings['csvfilepath'].slice(1, -1)
+  }
   fs.writeFileSync(settingsFile, JSON.stringify(Object.assign({}, existingSettings, settings)));
   helper.qlabworkspaceid = settings['qlabworkspaceid']
   console.log()
@@ -135,6 +138,7 @@ let existingSettings = (function () {
     // On every row, validate the data
     .on('data', (row) => {
       let cuename = row[csvCueNameField].trim()
+      row[csvCueNameField] = row[csvCueNameField].trim()
 
       if (rowcount != 1) {
         if (cuename.startsWith("OSC -")) {
