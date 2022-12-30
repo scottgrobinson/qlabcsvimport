@@ -3,14 +3,10 @@ const fs = require('fs'),
   qlabCore = require('./qlab/core.js'),
   qlabCue = require('./qlab/cue.js'),
   helper = require('./helper.js'),
-  path = require('path'),
-  { ArgumentParser } = require('argparse');
+  path = require('path')
 const { exit } = require('process');
 
 homedir = require('os').homedir();
-
-const parser = new ArgumentParser();
-parser.add_argument('-b', '--batchmode', { action: 'store_true' });
 
 const settingsFile = homedir + '/.qlabtools_data.json';
 const lightcuelistcachefile = homedir + '/.qlabtools_lightcuelistcachefile.json';
@@ -40,28 +36,15 @@ let existingSettings = (function () {
           { title: 'Show', value: 'show' }
         ]
 
-        promptQuestions = []
-        if (parser.parse_args()['batchmode']) {
-          promptQuestions.push({
+        promptQuestions = [
+          {
             type: 'text',
-            name: 'csvfolderpath',
-            message: `CSV Folderpath:`,
-            initial: 'csvfolderpath' in existingSettings ? existingSettings['csvfolderpath'] : '',
-            validate: csvfolderpath => csvfolderpath === '' ? 'Cannot be blank' : true,
-            format: csvfolderpath => csvfolderpath
-          })
-        } else {
-          promptQuestions.push({
-            type: 'text',
-            name: 'csvfilepath',
-            message: `CSV Filepath:`,
-            initial: 'csvfilepath' in existingSettings ? existingSettings['csvfilepath'] : '',
-            validate: csvfilepath => csvfilepath === '' ? 'Cannot be blank' : true,
-            format: csvfilepath => csvfilepath
-          })
-        }
-
-        promptQuestions.push(
+            name: 'csvpath',
+            message: `CSV File/Folder Path:`,
+            initial: 'csvpath' in existingSettings ? existingSettings['csvpath'] : '',
+            validate: csvpath => csvpath === '' ? 'Cannot be blank' : true,
+            format: csvpath => csvpath
+          },
           {
             type: 'select',
             name: 'csvType',
@@ -105,8 +88,8 @@ let existingSettings = (function () {
             message: `Cue list name where the created cues will be created:`,
             initial: 'destinationCueList' in existingSettings ? existingSettings['destinationCueList'] : '',
             validate: destinationCueList => destinationCueList === '' ? 'Cannot be blank' : true
-          },
-        )
+          }
+        ]
 
         return resolve(await prompts(promptQuestions, { onCancel }));
       })();
@@ -116,15 +99,9 @@ let existingSettings = (function () {
 
   const settings = await getNewSettings();
 
-  // Remove quotes from the folder path which can happen when we drag and drop from MacOS Finder into terminal
-  if ('csvfilepath' in settings) {
-    if (settings['csvfilepath'].slice(0, 1) == '\'' && settings['csvfilepath'].slice(-1) == '\'') {
-      settings['csvfilepath'] = settings['csvfilepath'].slice(1, -1)
-    }
-  } else if ('csvfolderpath' in settings) {
-    if (settings['csvfolderpath'].slice(0, 1) == '\'' && settings['csvfolderpath'].slice(-1) == '\'') {
-      settings['csvfolderpath'] = settings['csvfolderpath'].slice(1, -1)
-    }
+  // Remove quotes from the  path which can happen when we drag and drop from MacOS Finder into terminal
+  if (settings['csvpath'].slice(0, 1) == '\'' && settings['csvpath'].slice(-1) == '\'') {
+    settings['csvpath'] = settings['csvpath'].slice(1, -1)
   }
 
   fs.writeFileSync(settingsFile, JSON.stringify(Object.assign({}, existingSettings, settings)));
@@ -158,22 +135,22 @@ let existingSettings = (function () {
     csvDelimiter = '\t';
     csvCueNameField = 0;
   } else if (settings['csvType'] == "show") {
-    if (parser.parse_args()['batchmode']) {
-      helper.showErrorAndExit('-b/--batchmode only supports importing of songs files, not show files')
-    }
     csvDelimiter = ','
     csvCueNameField = 1;
   }
 
   csvsForProcessing = []
-  if (parser.parse_args()['batchmode']) {
-    fs.readdirSync(settings['csvfolderpath']).forEach(file => {
+  if (fs.lstatSync(settings['csvpath']).isDirectory()) {
+    fs.readdirSync(settings['csvpath']).forEach(file => {
       if (path.extname(file) == '.csv') {
-        csvsForProcessing.push(settings['csvfolderpath'] + '/' + file)
+        csvsForProcessing.push(settings['csvpath'] + '/' + file)
       }
-    });
+    })
+    if (settings['csvType'] == "show") {
+      helper.showErrorAndExit('Folder mode only supports importing of songs files, not show files')
+    }
   } else {
-    csvsForProcessing = [settings['csvfilepath']]
+    csvsForProcessing = [settings['csvpath']]
   }
 
   csvData = {}
