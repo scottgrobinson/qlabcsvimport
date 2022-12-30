@@ -3,7 +3,14 @@ const fs = require('fs'),
   qlabCore = require('./qlab/core.js'),
   qlabCue = require('./qlab/cue.js'),
   helper = require('./helper.js'),
-  homedir = require('os').homedir();
+  path = require('path'),
+  { ArgumentParser } = require('argparse');
+const { exit } = require('process');
+
+homedir = require('os').homedir();
+
+const parser = new ArgumentParser();
+parser.add_argument('-b', '--batchmode', { action: 'store_true' });
 
 const settingsFile = homedir + '/.qlabtools_data.json';
 const lightcuelistcachefile = homedir + '/.qlabtools_lightcuelistcachefile.json';
@@ -33,15 +40,28 @@ let existingSettings = (function () {
           { title: 'Show', value: 'show' }
         ]
 
-        return resolve(await prompts([
-          {
+        promptQuestions = []
+        if (parser.parse_args()['batchmode']) {
+          promptQuestions.push({
+            type: 'text',
+            name: 'csvfolderpath',
+            message: `CSV Folderpath:`,
+            initial: 'csvfolderpath' in existingSettings ? existingSettings['csvfolderpath'] : '',
+            validate: csvfolderpath => csvfolderpath === '' ? 'Cannot be blank' : true,
+            format: csvfolderpath => csvfolderpath
+          })
+        } else {
+          promptQuestions.push({
             type: 'text',
             name: 'csvfilepath',
             message: `CSV Filepath:`,
             initial: 'csvfilepath' in existingSettings ? existingSettings['csvfilepath'] : '',
             validate: csvfilepath => csvfilepath === '' ? 'Cannot be blank' : true,
             format: csvfilepath => csvfilepath
-          },
+          })
+        }
+
+        promptQuestions.push(
           {
             type: 'select',
             name: 'csvType',
@@ -79,16 +99,34 @@ let existingSettings = (function () {
             active: 'remove',
             inactive: 'warn'
           },
-        ], { onCancel }));
+          {
+            type: 'text',
+            name: 'destinationCueList',
+            message: `Cue list name where the created cues will be created:`,
+            initial: 'destinationCueList' in existingSettings ? existingSettings['destinationCueList'] : '',
+            validate: destinationCueList => destinationCueList === '' ? 'Cannot be blank' : true
+          },
+        )
+
+        return resolve(await prompts(promptQuestions, { onCancel }));
       })();
 
     })
   }
 
   const settings = await getNewSettings();
-  if (settings['csvfilepath'].slice(0, 1) == '\'' && settings['csvfilepath'].slice(-1) == '\'') {
-    settings['csvfilepath'] = settings['csvfilepath'].slice(1, -1)
+
+  // Remove quotes from the folder path which can happen when we drag and drop from MacOS Finder into terminal
+  if ('csvfilepath' in settings) {
+    if (settings['csvfilepath'].slice(0, 1) == '\'' && settings['csvfilepath'].slice(-1) == '\'') {
+      settings['csvfilepath'] = settings['csvfilepath'].slice(1, -1)
+    }
+  } else if ('csvfolderpath' in settings) {
+    if (settings['csvfolderpath'].slice(0, 1) == '\'' && settings['csvfolderpath'].slice(-1) == '\'') {
+      settings['csvfolderpath'] = settings['csvfolderpath'].slice(1, -1)
+    }
   }
+
   fs.writeFileSync(settingsFile, JSON.stringify(Object.assign({}, existingSettings, settings)));
   helper.qlabworkspaceid = settings['qlabworkspaceid']
   console.log()
@@ -116,60 +154,111 @@ let existingSettings = (function () {
   }
 
   // Start processing the CSV data
-  let csvoutput = []
-  let rowcount = 1
-  let validationErrors = []
-
   if (settings['csvType'] == "song") {
     csvDelimiter = '\t';
     csvCueNameField = 0;
   } else if (settings['csvType'] == "show") {
+    if (parser.parse_args()['batchmode']) {
+      helper.showErrorAndExit('-b/--batchmode only supports importing of songs files, not show files')
+    }
     csvDelimiter = ','
     csvCueNameField = 1;
   }
 
-  fs.createReadStream(settings['csvfilepath'])
-    .on('error', (error) => {
-      helper.showErrorAndExit(`Unable to import - ${error}`)
-    })
-    .pipe(parse({
-      delimiter: csvDelimiter
-    }))
-    // On every row, validate the data
-    .on('data', (row) => {
-      let cuename = row[csvCueNameField].trim()
-      row[csvCueNameField] = row[csvCueNameField].trim()
-
-      if (rowcount != 1) {
-        if (cuename.startsWith("OSC -")) {
-          csvoutput.push(row)
-        } else if (!(Object.keys(lightCues).includes(cuename))) {
-          validationErrors.push(`'${cuename}' [Line ${rowcount}] - Could not find cue in qLab with matching name`)
-        } else {
-          csvoutput.push(row)
-        }
-      }
-      rowcount++;
-    })
-    // Once the file has been read, start processing the data!
-    .on('end', async () => {
-      if (validationErrors.length == 0) {
-        const scriptStart = new Date()
-
-        console.log('Starting processing...\n')
-        await helper.processCSVData(settings['csvfilepath'], csvoutput, settings['chaseFixtureRemovalOnMatchingFixture'], settings['csvType'])
-        const scriptEnd = new Date()
-        console.log(`\nFinished processing - Took ${(scriptEnd - scriptStart) / 1000} seconds`)
-
-        process.exit(0)
-      } else {
-        console.log(`\x1b[31m[Error] Unable to import - Errors found in CSV ${settings['csvfilepath']}:`)
-        for (const error of validationErrors) {
-          console.log(`  ${error} `)
-        }
-        console.log('\nExiting...')
-        process.exit(1)
+  csvsForProcessing = []
+  if (parser.parse_args()['batchmode']) {
+    fs.readdirSync(settings['csvfolderpath']).forEach(file => {
+      if (path.extname(file) == '.csv') {
+        csvsForProcessing.push(settings['csvfolderpath'] + '/' + file)
       }
     });
+  } else {
+    csvsForProcessing = [settings['csvfilepath']]
+  }
+
+  csvData = {}
+  csvErrors = {}
+  csvsHaveError = false
+  function validateCSVFile(csvPath) {
+    let rowcount = 1
+    return new Promise((resolve, reject) => {
+      fs.createReadStream(csvPath)
+        .on('error', (error) => {
+          csvErrors[csvPath].push(`Unable to import - ${error}`)
+        })
+        .pipe(parse({
+          delimiter: csvDelimiter
+        }))
+        // On every row, validate the data
+        .on('data', (row) => {
+          let cuename = row[csvCueNameField].trim()
+          row[csvCueNameField] = row[csvCueNameField].trim()
+
+          if (rowcount != 1) {
+            if (cuename.startsWith("OSC -")) {
+              csvData[csvPath].push(row)
+            } else if (!(Object.keys(lightCues).includes(cuename))) {
+              csvsHaveError = true
+              csvErrors[csvPath].push(`'${cuename}' [Line ${rowcount}] - Could not find cue in qLab with matching name`)
+            } else {
+              csvData[csvPath].push(row)
+            }
+          }
+          rowcount++;
+        })
+        .on('end', () => {
+          resolve();
+        })
+    })
+  }
+
+  async function validateCSVs(csvsForProcessing) {
+    for (i in csvsForProcessing) {
+      csvPath = csvsForProcessing[i]
+      csvData[csvPath] = []
+      csvErrors[csvPath] = []
+      console.log(`Attempting to validate ${csvPath}`)
+      await validateCSVFile(csvPath)
+    }
+  }
+
+  await validateCSVs(csvsForProcessing)
+  console.log("")
+  if (csvsHaveError) {
+    for (csv in csvErrors) {
+      if (csvErrors[csv].length) {
+        console.log(csv)
+        for (error in csvErrors[csv]) {
+          console.log(`\x1b[31m[Error] ${csvErrors[csv][error]}\x1b[0m`);
+        }
+        console.log("")
+      }
+    }
+    helper.showErrorAndExit('Errors were found whilst validating the CSV data.')
+  } else {
+    processedCSVMessages = {}
+    csvProcessingCount = 1
+    for (csvPath in csvData) {
+      processedCSVMessages[csvPath] = []
+      const scriptStart = new Date()
+      console.log(`Starting processing of ${csvPath} (${csvProcessingCount} of ${Object.keys(csvData).length})\n`)
+      processedCSVMessages[csvPath] = await helper.processCSVData(csvPath, csvData[csvPath], settings['chaseFixtureRemovalOnMatchingFixture'], settings['csvType'], settings['destinationCueList'])
+      const scriptEnd = new Date()
+      console.log(`\nFinished processing of ${csvPath} (${csvProcessingCount} of ${Object.keys(csvData).length}) - Took ${(scriptEnd - scriptStart) / 1000} seconds`)
+      console.log("")
+      csvProcessingCount++
+    }
+    for (csvPath in processedCSVMessages) {
+      if (processedCSVMessages[csvPath].length) {
+        console.log(csvPath)
+        for (message in processedCSVMessages[csvPath]) {
+          console.log(`\x1b[33m${processedCSVMessages[csvPath][message]}\x1b[0m`);
+        }
+        console.log("")
+      }
+    }
+    console.log("Finished!")
+    process.exit(0)
+  }
 
 })();

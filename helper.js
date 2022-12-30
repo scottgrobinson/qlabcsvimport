@@ -433,8 +433,11 @@ async function generateInternalLightCueList(masterCueLists, lightcuelistcachefil
  * @param {array} csvData Array of data from CSV file
  * @param {boolean} chaseFixtureRemovalOnMatchingFixture Remove fixtures from a chase if combined in a group with a scene that has a fixture contained within the chase
  * @param {boolean} csvType Wether the CSV is a "song" CSV (from an Audition export), or a "show" CSV
+ * @param {string} destinationCueList The cue list where new cues will be created
 */
-async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFixture, csvType) {
+async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFixture, csvType, destinationCueList) {
+  warnings = [];
+
   if (csvType == "song") {
     combinedCues = combineCuesByStartAndDuration(csvData);
   } else if (csvType == "show") {
@@ -448,16 +451,17 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
     }
   }
 
-  // Find the temporary "dump" cue list and exit if doesn't exist
-  dumpcuelistid = false;
+  // Find the destination cue list and exit if doesn't exist
+  destinationcuelistid = false;
   for (list of masterCueLists) {
-    if (list["listName"] == "Script Dump - DO NOT USE") {
-      dumpcuelistid = list["uniqueID"];
+    if (list["listName"] == destinationCueList) {
+      destinationcuelistid = list["uniqueID"];
+      await qlabCue.selectById(destinationcuelistid)
       break;
     }
   }
-  if (!dumpcuelistid) {
-    showErrorAndExit("Unable to temporary dump cue list 'Script Dump - DO NOT USE'");
+  if (!destinationcuelistid) {
+    showErrorAndExit(`Unable to find destination cue list '${destinationCueList}'`);
   }
 
   // Essentially select the last item in the cue list
@@ -620,12 +624,7 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
   progressBar.stop();
   progresBarActive = false;
 
-  if (warnings.length > 0) {
-    console.log("\n");
-    for (warning in warnings) {
-      console.log(`\x1b[33m[Warning] - ${warnings[warning]}\x1b[0m`);
-    }
-  }
+  return warnings
 }
 
 /**

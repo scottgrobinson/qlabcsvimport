@@ -48,6 +48,13 @@ let existingSettings = (function () {
             initial: 'outputdir' in existingSettings ? existingSettings['outputdir'] : '',
             validate: outputdir => outputdir === '' ? 'Cannot be blank' : true,
             format: outputdir => outputdir
+          },
+          {
+            type: 'text',
+            name: 'sourceCueList',
+            message: `Source cue list  where the created cues will be pulled from:`,
+            initial: 'sourceCueList' in existingSettings ? existingSettings['sourceCueList'] : '',
+            validate: sourceCueList => sourceCueList === '' ? 'Cannot be blank' : true
           }
         ], { onCancel }));
       })();
@@ -68,21 +75,21 @@ let existingSettings = (function () {
   // Find the temporary "dump" cue list and exit if doesn't exist
   dumpcuelistid = false
   for (list of masterCueLists) {
-    if (list['listName'] == 'Script Dump - DO NOT USE') {
+    if (list['listName'] == settings['sourceCueList']) {
       dumpcuelistid = list['uniqueID']
       break
     }
   }
   if (!dumpcuelistid) {
-    helper.showErrorAndExit('Unable to find temporary dump cue list \'Script Dump - DO NOT USE\'')
+    helper.showErrorAndExit(`Unable to find temporary dump cue list '${settings['sourceCueList']}'`)
   }
 
   console.log(`Starting export of workspace ${settings['qlabworkspaceid']}`)
 
-  // Loop over all elements in the "Script Dump - DO NOT USE" cue list and export them to JSON
+  // Loop over all elements in the settings['sourceCueList'] cue list and export them to JSON
   data = {}
   for (list of masterCueLists) {
-    if (list['listName'] == 'Script Dump - DO NOT USE') {
+    if (list['listName'] == settings['sourceCueList']) {
       for (cueL1 in list['cues']) {
         cueL1Name = list['cues'][cueL1]['name']
 
