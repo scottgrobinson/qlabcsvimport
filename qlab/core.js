@@ -36,7 +36,7 @@ async function init(qlabip) {
  * @param {*} arguments Parameters to pass with the message
  * @returns {Promise}
  */
-async function sendMessage(address, arguments) {
+async function sendMessage(address, arguments, allowFailure = false) {
     return new Promise((resolve, reject) => {
         currentMessage = { 'address': address, 'status': false }
 
@@ -56,10 +56,10 @@ async function sendMessage(address, arguments) {
         }
 
         async.retry({ times: 10, interval: 250 }, checkMessageStatus, function (err, result) {
-            if (err) {
-                helper.showErrorAndExit(`No response received when sending ${JSON.stringify(arguments)} to ${address}`)
-            } else {
+            if (allowFailure || !err) {
                 resolve(result)
+            } else {
+                helper.showErrorAndExit(`No response received when sending ${JSON.stringify(arguments)} to ${address}`)
             }
         });
     });
