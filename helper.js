@@ -1,3 +1,4 @@
+const { Console } = require("console");
 const fs = require("fs"),
   path = require("path"),
   cliProgress = require("cli-progress"),
@@ -7,6 +8,7 @@ const { exit } = require("process");
 var qlabworkspaceid = "";
 var progresBarActive = false;
 var warnings = [];
+var appleScript = [];
 
 /**
  * Converts timestamps to seconds.microsends
@@ -126,14 +128,25 @@ async function createLightCueFromScene(groupKey, sceneName, start, cueID) {
   }
 
   let newcue = await qlabCue.create("light");
+  appleScript.push(`make type "Light"`)
+  appleScript.push(`set newLightCue to last item of(selected as list)`)
+  appleScript.push(`set newLightCueID to uniqueID of newLightCue`)
+
   if (cueID) {
     await qlabCue.setNumber("selected", cueID);
+    appleScript.push(`set q number of parentGroupCue to "${cueID}"`)
   }
   await qlabCue.setName("selected", sceneName);
+  appleScript.push(`set q name of newLightCue to "${sceneName}"`)
+
   await qlabCue.setLightString("selected", lightCues[sceneName]["lightstring"]);
+  appleScript.push(`set command text of newLightCue to "${lightCues[sceneName]["lightstring"]}"`)
   await qlabCue.setDuration("selected", "00.000");
+  appleScript.push(`set duration of newLightCue to "00.000"`)
   await qlabCue.setPreWait("selected", await start);
+  appleScript.push(`set pre wait of newLightCue to "${start}"`)
   await qlabCue.move(newcue, groupKey);
+  appleScript.push(`move cue id newLightCueID of parent of newLightCue to end of newGroupCue`)
 }
 
 /**
@@ -154,7 +167,7 @@ async function createOSCCueFromString(groupKey, commandPatch, cueLabel, command,
   await qlabCue.setNetworkString("selected", command);
   await qlabCue.setNetworkPatch("selected", parseInt(commandPatch));
   await qlabCue.setDuration("selected", "00.000");
-  await qlabCue.setPreWait("selected", await start);
+  await qlabCue.setPreWait("selected", start);
   await qlabCue.move(newcue, groupKey);
 }
 
@@ -171,13 +184,26 @@ async function createOSCCueFromString(groupKey, commandPatch, cueLabel, command,
  */
 async function createCueFromChaser(groupKey, chaserName, start, duration, existingFixtures, chaseFixtureRemovalOnMatchingFixture, existingFixturesSceneName, cueID) {
   const parentChaseGroupKey = await createGroup(chaserName + " CONTAINER");
-  await qlabCue.setPreWait("selected", await start);
+  appleScript.push(`make type "Group"`)
+  appleScript.push(`set chaserContainerGroupCue to last item of(selected as list)`)
+  appleScript.push(`set chaserContainerGroupCueID to uniqueID of chaserContainerGroupCue`)
+  appleScript.push(`set q name of chaserContainerGroupCue to "${chaserName} CONTAINER"`)
+  appleScript.push(`set mode of chaserContainerGroupCue to cue_list`)
+
+  await qlabCue.setPreWait("selected", start);
+  appleScript.push(`set pre wait of chaserContainerGroupCue to "${start}"`)
 
   if (cueID) {
     await qlabCue.setNumber("selected", cueID);
+    appleScript.push(`set q number of chaserContainerGroupCue to "${cueID}"`)
   }
 
   const chasegroupKey = await createGroup(chaserName);
+  appleScript.push(`make type "Group"`)
+  appleScript.push(`set chaserGroupCue to last item of(selected as list)`)
+  appleScript.push(`set chaserGroupCueID to uniqueID of chaserGroupCue`)
+  appleScript.push(`set q name of chaserGroupCue to "${chaserName}"`)
+  appleScript.push(`set mode of chaserGroupCue to fire_first_enter_group`)
   await qlabCue.setMode("selected", 1);
 
   for (chasestate in lightCues[chaserName]["chasestates"]) {
@@ -205,19 +231,29 @@ async function createCueFromChaser(groupKey, chaserName, start, duration, existi
       }
 
       let newcue = await qlabCue.create("light");
+      appleScript.push(`make type "Light"`)
+      appleScript.push(`set lightCue to last item of(selected as list)`)
+      appleScript.push(`set lightCueID to uniqueID of lightCue`)
       if (chasestate == 0) {
         firstcueid = newcue;
       }
 
       await qlabCue.setName("selected", statedata["name"]);
+      appleScript.push(`set q name of lightCue to "${statedata["name"]}"`)
       await qlabCue.setLightString("selected", listOfFixturesToStringOfFixtures(fixtureList));
+      appleScript.push(`set command text of lightCue to "${listOfFixturesToStringOfFixtures(fixtureList)}"`)
       await qlabCue.setDuration("selected", statedata["duration"]);
+      appleScript.push(`set duration of lightCue to "${statedata["duration"]}"`)
       await qlabCue.setContinueMode("selected", 2);
+      appleScript.push(`set continue mode of lightCue to auto_continue`)
       await qlabCue.move(newcue, chasegroupKey);
+      appleScript.push(`move cue id lightCueID of parent of lightCue to end of chaserGroupCue`)
       lastfixturename = statedata["name"];
       lastfixtureindex = chasestate;
     } else if (statedata["type"] == "Wait") {
       let newcue = await qlabCue.create("wait");
+      appleScript.push(`make type "Light"`)
+
       await qlabCue.setDuration("selected", await qlabCue.getDuration(lightCues[chaserName]["chasestates"][chasestate]["number"]));
       await qlabCue.setContinueMode("selected", 2);
       await qlabCue.move(newcue, chasegroupKey);
@@ -259,12 +295,6 @@ async function createCueFromChaser(groupKey, chaserName, start, duration, existi
       resetFixtures[fixture] = 0;
     }
   }
-
-  //lightcue = await qlabCue.create("light");
-  //await qlabCue.setDuration("selected", "00.00");
-  //await qlabCue.setLightString("selected", listOfFixturesToStringOfFixtures(resetFixtures));
-  //await qlabCue.setName("selected", `Reset ${lastfixturename} `);
-  //await qlabCue.move(lightcue, loopgroup);
 
   await qlabCue.move(loopgroup, chasegroupKey);
 
@@ -434,9 +464,11 @@ async function generateInternalLightCueList(masterCueLists, lightcuelistcachefil
  * @param {boolean} chaseFixtureRemovalOnMatchingFixture Remove fixtures from a chase if combined in a group with a scene that has a fixture contained within the chase
  * @param {boolean} csvType Wether the CSV is a "song" CSV (from an Audition export), or a "show" CSV
  * @param {string} destinationCueList The cue list where new cues will be created
+ * @param {string} replaceIfAlreadyExists Replace the destination cue list if it already exists (If a cue number is included in the filename)
 */
-async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFixture, csvType, destinationCueList) {
+async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFixture, csvType, destinationCueList, replaceIfAlreadyExists) {
   warnings = [];
+  appleScript.push(`tell application id "com.figure53.qlab.4" to tell front workspace`)
 
   if (csvType == "song") {
     combinedCues = combineCuesByStartAndDuration(csvData);
@@ -457,17 +489,42 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
     if (list["listName"] == destinationCueList) {
       destinationcuelistid = list["uniqueID"];
       await qlabCue.selectById(destinationcuelistid)
+      appleScript.push(`set current cue list to first cue list whose q name is "${destinationCueList}"`)
       break;
     }
   }
   if (!destinationcuelistid) {
-    showErrorAndExit(`Unable to find destination cue list '${destinationCueList}'`);
+    showErrorAndExit(`Unable to find destination cue list "${destinationCueList}"`);
   }
 
   // Essentially select the last item in the cue list
   await qlabCue.selectByNumber("9999999999");
+
+  regexMatch = fileName.match(/\[(.*)\].*/)
+
+  // If the cue already exists, and replaceIfAlreadyExists is set, delete the existing cue first
+  if (regexMatch) {
+    existingCUEId = await qlabCue.getCueID(regexMatch[1])
+    if (existingCUEId && replaceIfAlreadyExists) {
+      console.log(`\x1b[33mCue '${regexMatch[1]}' already exists and replaceIfAlreadyExists is true - Replacing the existing cue \x1b[0m\n`);
+      await qlabCue.deleteCueID(regexMatch[1])
+    } else if (existingCUEId) {
+      console.log(`\x1b[33mCue '${regexMatch[1]}' already exists but replaceIfAlreadyExists is false - Not replacing the existing cue \x1b[0m\n`);
+    }
+  }
+
   // Create 'master' group for this audio timeline
   const groupKey = await createGroup(path.basename(fileName, path.extname(fileName)));
+  appleScript.push(`make type "Group"`)
+  appleScript.push(`set newGroupCue to last item of(selected as list)`)
+  appleScript.push(`set q name of newGroupCue to "${path.basename(fileName, path.extname(fileName))}"`)
+
+  // If filename matches [XX]XX then use values inside [] as the cue ID
+  if (regexMatch) {
+    await qlabCue.setNumber("selected", regexMatch[1])
+    appleScript.push(`set q number of newGroupCue to "${path.basename(fileName, path.extname(fileName))}"`)
+  }
+
   const progressBar = new cliProgress.SingleBar(
     {
       format: "{bar} {value} of {total} ({percentage}%)",
@@ -624,6 +681,10 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
   progressBar.stop();
   progresBarActive = false;
 
+  appleScript.push(`end tell`)
+  //for (line in appleScript) {
+  //  console.log(appleScript[line])
+  //}
   return warnings
 }
 

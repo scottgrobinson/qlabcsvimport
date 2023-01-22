@@ -40,7 +40,7 @@ let existingSettings = (function () {
           {
             type: 'text',
             name: 'csvpath',
-            message: `CSV File/Folder Path:`,
+            message: `CSV File/Folder Path (CSV files matching the pattern "[X]Y.csv" will have there group cue ID set to X):`,
             initial: 'csvpath' in existingSettings ? existingSettings['csvpath'] : '',
             validate: csvpath => csvpath === '' ? 'Cannot be blank' : true,
             format: csvpath => csvpath
@@ -88,7 +88,15 @@ let existingSettings = (function () {
             message: `Cue list name where the created cues will be created:`,
             initial: 'destinationCueList' in existingSettings ? existingSettings['destinationCueList'] : '',
             validate: destinationCueList => destinationCueList === '' ? 'Cannot be blank' : true
-          }
+          },
+          {
+            type: 'toggle',
+            name: 'replaceIfAlreadyExists',
+            message: `Replace the cue list if it already exists (If a cue number is included in the filename)?:`,
+            initial: 'replaceIfAlreadyExists' in existingSettings ? existingSettings['replaceIfAlreadyExists'] : true,
+            active: 'yes',
+            inactive: 'no'
+          },
         ]
 
         return resolve(await prompts(promptQuestions, { onCancel }));
@@ -219,7 +227,7 @@ let existingSettings = (function () {
       processedCSVMessages[csvPath] = []
       const scriptStart = new Date()
       console.log(`Starting processing of ${csvPath} (${csvProcessingCount} of ${Object.keys(csvData).length})\n`)
-      processedCSVMessages[csvPath] = await helper.processCSVData(csvPath, csvData[csvPath], settings['chaseFixtureRemovalOnMatchingFixture'], settings['csvType'], settings['destinationCueList'])
+      processedCSVMessages[csvPath] = await helper.processCSVData(csvPath, csvData[csvPath], settings['chaseFixtureRemovalOnMatchingFixture'], settings['csvType'], settings['destinationCueList'], settings['replaceIfAlreadyExists'])
       const scriptEnd = new Date()
       console.log(`\nFinished processing of ${csvPath} (${csvProcessingCount} of ${Object.keys(csvData).length}) - Took ${(scriptEnd - scriptStart) / 1000} seconds`)
       console.log("")
