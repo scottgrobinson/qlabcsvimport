@@ -221,6 +221,28 @@ function setNetworkString(cue, networkstring) {
     });
 }
 
+/**
+ * Gets the ID of the specified cue (Used to determine if a cue exists or not)
+ * @param {string} cuenum The cue number get the ID of 
+ * @returns {Promise}
+*/
+function getCueID(cuenum) {
+    return new Promise(resolve => {
+        resolve(core.sendMessage(`/cue/${cuenum}/uniqueID`, [], true))
+    });
+}
+
+/**
+* Deletes the specifed cue
+ * @param {string} cue The cue to delete
+ * @returns {Promise}
+*/
+function deleteCueID(cue) {
+    return new Promise(resolve => {
+        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/delete/${cue}`))
+    });
+}
+
 module.exports.create = create
 module.exports.move = move
 module.exports.setName = setName
@@ -240,3 +262,5 @@ module.exports.getLightString = getLightString
 module.exports.setLightString = setLightString
 module.exports.setNetworkPatch = setNetworkPatch
 module.exports.setNetworkString = setNetworkString
+module.exports.getCueID = getCueID
+module.exports.deleteCueID = deleteCueID
