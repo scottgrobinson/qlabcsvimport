@@ -48,7 +48,7 @@ async function sendMessage(address, arguments, allowFailure = false) {
         function checkMessageStatus(callback) {
             if (currentMessage['address'] == address && currentMessage['status'] == 'ok') {
                 callback(null, currentMessage['data']) // No Error
-            } else if (currentMessage['address'].match(address.replace('/cue/selected/', 'cue_id\/.*\/')) && currentMessage['status'] == 'ok') {
+            } else if (currentMessage['address'].match(address.replace('/cue/selected/', 'cue\/.*\/')) && currentMessage['status'] == 'ok') {
                 callback(null, currentMessage['data']) // No Error
             } else {
                 callback(true) // Error

@@ -503,13 +503,18 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
   regexMatch = fileName.match(/\[(.*)\].*/)
 
   // If the cue already exists, and replaceIfAlreadyExists is set, delete the existing cue first
+  var setCueName = false
   if (regexMatch) {
     existingCUEId = await qlabCue.getCueID(regexMatch[1])
     if (existingCUEId && replaceIfAlreadyExists) {
       console.log(`\x1b[33mCue '${regexMatch[1]}' already exists and replaceIfAlreadyExists is true - Replacing the existing cue \x1b[0m\n`);
+      setCueName = true
       await qlabCue.deleteCueID(regexMatch[1])
     } else if (existingCUEId) {
       console.log(`\x1b[33mCue '${regexMatch[1]}' already exists but replaceIfAlreadyExists is false - Not replacing the existing cue \x1b[0m\n`);
+    } else {
+      // cue name is defined in the file, but doesn't already exist in qLab
+      setCueName = true
     }
   }
 
@@ -519,8 +524,7 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
   appleScript.push(`set newGroupCue to last item of(selected as list)`)
   appleScript.push(`set q name of newGroupCue to "${path.basename(fileName, path.extname(fileName))}"`)
 
-  // If filename matches [XX]XX then use values inside [] as the cue ID
-  if (regexMatch) {
+  if (setCueName) {
     await qlabCue.setNumber("selected", regexMatch[1])
     appleScript.push(`set q number of newGroupCue to "${path.basename(fileName, path.extname(fileName))}"`)
   }

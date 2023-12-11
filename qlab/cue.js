@@ -49,24 +49,24 @@ function setMode(cue, mode) {
 }
 
 /**
- * Selects the specified cue by ID
+ * Selects the specified cue by ID (As of qLab 5.3.2 we receive an error when using this so allowFailure has been set to true)
  * @param {string} cue The cue ID to select
  * @returns {Promise}
  */
 function selectById(cue) {
     return new Promise(resolve => {
-        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/select_id/${cue}`))
+        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/select_id/${cue}`, [], true))
     });
 }
 
 /**
- * Selects the specified cue by number
+ * Selects the specified cue by number (As of qLab 5.3.2 we receive an error when using this so allowFailure has been set to true)
  * @param {string} cuenum The cue number to select
  * @returns {Promise}
  */
 function selectByNumber(cuenum) {
     return new Promise(resolve => {
-        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/select/${cuenum}`))
+        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/select/${cuenum}`, [], true))
     });
 }
 
