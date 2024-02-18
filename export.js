@@ -52,7 +52,7 @@ let existingSettings = (function () {
           {
             type: 'text',
             name: 'sourceCueList',
-            message: `Source cue list  where the created cues will be pulled from:`,
+            message: `Source cue list where the created cues will be pulled from:`,
             initial: 'sourceCueList' in existingSettings ? existingSettings['sourceCueList'] : '',
             validate: sourceCueList => sourceCueList === '' ? 'Cannot be blank' : true
           }
