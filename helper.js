@@ -37,7 +37,7 @@ function stringOfFixturesToListOfFixtures(fixtureString) {
   if (fixtureString) {
     const splitFixtureString = fixtureString.split("\n");
     for (fixture in splitFixtureString) {
-      if (splitFixtureString[fixture] != "") {
+      if (splitFixtureString[fixture] != "" && splitFixtureString[fixture].trim().length) {
         fixtureSetting = splitFixtureString[fixture].split("=")[0].trim();
         fixtureValue = parseInt(splitFixtureString[fixture].split("=")[1].trim());
         fixtureList[fixtureSetting] = fixtureValue;
@@ -275,7 +275,7 @@ async function createCueFromChaser(groupKey, chaserName, start, duration, existi
   fixturesInScene = [];
   for (light in splitLightString) {
     // If we have blank lines, sometimes caused by using the "text" view when editing lights, ignore the blank line
-    if (!splitLightString[light]) {
+    if (!splitLightString[light] || !splitLightString[light].trim().length) {
       continue
     }
     fixtureSetting = splitLightString[light].split("=")[0].trim();
