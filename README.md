@@ -22,6 +22,7 @@ On first running the script, a number of questions are asked including "Remove f
 
 - Warn: Will warn you if you have any light fixtures in your chasers that would override what is set on the scene in that group. I.E If the scene has a Spotlight on, but a chaser turns the spotlight on and off, we will warn about this only.
 - Remove: Will remove any light fixtures in the chasers that would override what is set on the scene in that group. I.E If the scene has a Spotlight on, but a chaser turns the spotlight on and off, we will remove the spotlight from the chaser.
+
 ### export.js
 
 Run with "node export.js" and it will:
@@ -30,6 +31,15 @@ Run with "node export.js" and it will:
 - Export all of the data from the "Dump" list to a JSON file
 
 This script was specifically created to allow easily comparison between major code changes in the app. I.E Create a json export before the major code changes, re-import all of the CSV files, create another json export, and then use a tool such as WinMerge to validate that the data is the same, or has only changed where expected.
+
+#### cleanup.js
+
+Run with "node cleanup.js" and it will:
+
+- Connect to qLab and ensure that the correct cue lists exist
+- Recreate all of the scenes adding in "clear down previous levels/reset levels/set everything to zero" levels to each
+
+This is very much a one time script, but I've left it in here incase it's useful to me in the future
 
 ## To-Do
 

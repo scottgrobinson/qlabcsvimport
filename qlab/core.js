@@ -55,7 +55,7 @@ async function sendMessage(address, arguments, allowFailure = false) {
             }
         }
 
-        async.retry({ times: 10, interval: 250 }, checkMessageStatus, function (err, result) {
+        async.retry({ times: 1000, interval: 1 }, checkMessageStatus, function (err, result) {
             if (allowFailure || !err) {
                 resolve(result)
             } else {

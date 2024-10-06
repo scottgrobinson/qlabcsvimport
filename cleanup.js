@@ -97,12 +97,6 @@ let existingSettings = (function () {
         helper.showErrorAndExit('Unable to find light cues. Ensure \'Light Cues > Scenes\' & \'Light Cues > Chases\' cue lists exist')
     }
 
-    //for (lightCue in lightCues) {
-    //    if (lightCues[lightCue]["type"] == "Scenes") {
-    //        console.log(lightCues[lightCue]);
-    //    }
-    //}
-
     // Find the destination cue list and exit if doesn't exist
     destinationcuelistid = false;
     for (list of masterCueLists) {
@@ -121,7 +115,7 @@ let existingSettings = (function () {
 
     for (lightCue in lightCues) {
         if (lightCues[lightCue]["type"] == "Scenes") {
-            let newcue = await qlabCue.create("light");
+            await qlabCue.create("light");
             await qlabCue.setName("selected", lightCue);
             let fixtureSettings = await helper.combineSceneFixtures([lightCue])
             let newFixtureSettings = []
