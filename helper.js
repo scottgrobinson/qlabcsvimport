@@ -1,14 +1,13 @@
-const { Console } = require("console");
 const fs = require("fs"),
   path = require("path"),
   cliProgress = require("cli-progress"),
   qlabCue = require("./qlab/cue.js");
+const { Console } = require("console");
 const { exit } = require("process");
 
 var qlabworkspaceid = "";
 var progresBarActive = false;
 var warnings = [];
-var appleScript = [];
 
 /**
  * Converts timestamps to seconds.microsends
@@ -16,14 +15,20 @@ var appleScript = [];
  * @returns {string} Timestamp in format sss.mmm
  */
 function processTimestamp(timestamp) {
-  if (timestamp.split(":")[0] == 0) {
-    seconds = timestamp.split(":")[1].split(".")[0];
-  } else {
-    seconds = parseInt(timestamp.split(":")[0] * 60) + parseInt(timestamp.split(":")[1].split(".")[0]);
-  }
+  // Split the time string into minutes, seconds, and milliseconds
+  const [minutesPart, secondsPart] = timestamp.split(':');
+  const seconds = secondsPart.split('.')[0];
+  const milliseconds = secondsPart.split('.')[1] || '0';
 
-  microseconds = timestamp.split(":")[1].split(".")[1].padEnd(3, 0);
-  return seconds.toString() + "." + microseconds;
+  // Convert minutes, seconds, and milliseconds to integers
+  const minutesInt = parseInt(minutesPart, 10);
+  const secondsInt = parseInt(seconds, 10);
+  const millisecondsInt = parseInt(milliseconds, 10);
+
+  // Calculate total milliseconds
+  const totalMilliseconds = (minutesInt * 60 * 1000) + (secondsInt * 1000) + millisecondsInt;
+
+  return totalMilliseconds;
 }
 
 /**
@@ -128,25 +133,15 @@ async function createLightCueFromScene(groupKey, sceneName, start, cueID) {
   }
 
   let newcue = await qlabCue.create("light");
-  appleScript.push(`make type "Light"`)
-  appleScript.push(`set newLightCue to last item of(selected as list)`)
-  appleScript.push(`set newLightCueID to uniqueID of newLightCue`)
-
   if (cueID) {
     await qlabCue.setNumber("selected", cueID);
-    appleScript.push(`set q number of parentGroupCue to "${cueID}"`)
   }
   await qlabCue.setName("selected", sceneName);
-  appleScript.push(`set q name of newLightCue to "${sceneName}"`)
 
   await qlabCue.setLightString("selected", lightCues[sceneName]["lightstring"]);
-  appleScript.push(`set command text of newLightCue to "${lightCues[sceneName]["lightstring"]}"`)
   await qlabCue.setDuration("selected", "00.000");
-  appleScript.push(`set duration of newLightCue to "00.000"`)
   await qlabCue.setPreWait("selected", await start);
-  appleScript.push(`set pre wait of newLightCue to "${start}"`)
   await qlabCue.move(newcue, groupKey);
-  appleScript.push(`move cue id newLightCueID of parent of newLightCue to end of newGroupCue`)
 }
 
 /**
@@ -184,26 +179,14 @@ async function createOSCCueFromString(groupKey, commandPatch, cueLabel, command,
  */
 async function createCueFromChaser(groupKey, chaserName, start, duration, existingFixtures, chaseFixtureRemovalOnMatchingFixture, existingFixturesSceneName, cueID) {
   const parentChaseGroupKey = await createGroup(chaserName + " CONTAINER");
-  appleScript.push(`make type "Group"`)
-  appleScript.push(`set chaserContainerGroupCue to last item of(selected as list)`)
-  appleScript.push(`set chaserContainerGroupCueID to uniqueID of chaserContainerGroupCue`)
-  appleScript.push(`set q name of chaserContainerGroupCue to "${chaserName} CONTAINER"`)
-  appleScript.push(`set mode of chaserContainerGroupCue to cue_list`)
 
   await qlabCue.setPreWait("selected", start);
-  appleScript.push(`set pre wait of chaserContainerGroupCue to "${start}"`)
 
   if (cueID) {
     await qlabCue.setNumber("selected", cueID);
-    appleScript.push(`set q number of chaserContainerGroupCue to "${cueID}"`)
   }
 
   const chasegroupKey = await createGroup(chaserName);
-  appleScript.push(`make type "Group"`)
-  appleScript.push(`set chaserGroupCue to last item of(selected as list)`)
-  appleScript.push(`set chaserGroupCueID to uniqueID of chaserGroupCue`)
-  appleScript.push(`set q name of chaserGroupCue to "${chaserName}"`)
-  appleScript.push(`set mode of chaserGroupCue to fire_first_enter_group`)
   await qlabCue.setMode("selected", 1);
 
   for (chasestate in lightCues[chaserName]["chasestates"]) {
@@ -231,28 +214,19 @@ async function createCueFromChaser(groupKey, chaserName, start, duration, existi
       }
 
       let newcue = await qlabCue.create("light");
-      appleScript.push(`make type "Light"`)
-      appleScript.push(`set lightCue to last item of(selected as list)`)
-      appleScript.push(`set lightCueID to uniqueID of lightCue`)
       if (chasestate == 0) {
         firstcueid = newcue;
       }
 
       await qlabCue.setName("selected", statedata["name"]);
-      appleScript.push(`set q name of lightCue to "${statedata["name"]}"`)
       await qlabCue.setLightString("selected", listOfFixturesToStringOfFixtures(fixtureList));
-      appleScript.push(`set command text of lightCue to "${listOfFixturesToStringOfFixtures(fixtureList)}"`)
       await qlabCue.setDuration("selected", statedata["duration"]);
-      appleScript.push(`set duration of lightCue to "${statedata["duration"]}"`)
       await qlabCue.setContinueMode("selected", 2);
-      appleScript.push(`set continue mode of lightCue to auto_continue`)
       await qlabCue.move(newcue, chasegroupKey);
-      appleScript.push(`move cue id lightCueID of parent of lightCue to end of chaserGroupCue`)
       lastfixturename = statedata["name"];
       lastfixtureindex = chasestate;
     } else if (statedata["type"] == "Wait") {
       let newcue = await qlabCue.create("wait");
-      appleScript.push(`make type "Light"`)
 
       await qlabCue.setDuration("selected", await qlabCue.getDuration(lightCues[chaserName]["chasestates"][chasestate]["number"]));
       await qlabCue.setContinueMode("selected", 2);
@@ -318,61 +292,107 @@ async function createCueFromChaser(groupKey, chaserName, start, duration, existi
 }
 
 /**
- * Combine cues where the start time and duration match
- * @param {array} incomingData
+ * Extracts data from the CSVs and parses to relevant types
+ * @param {array} csvData
  * @returns {array}
  */
-function combineCuesByStartAndDuration(incomingData) {
-  const newData = [];
-  for (row in incomingData) {
-    const cuename = incomingData[row][0];
-    const start = parseFloat(processTimestamp(incomingData[row][1])).toFixed(2);
-    const duration = parseFloat(processTimestamp(incomingData[row][2])).toFixed(2);
-    const end = (parseFloat(start) + parseFloat(duration)).toFixed(2);
-    if (typeof newData[newData.length - 1] !== "undefined" && newData[newData.length - 1][1] == start && newData[newData.length - 1][2] == duration) {
-      newData[newData.length - 1][0].push(cuename);
-    } else {
-      newData.push([[cuename], start, duration, end]);
-    }
+function extractAndParseCsvData(csvData) {
+  const parsedCsvData = [];
+
+  for (row in csvData) {
+    const cuename = csvData[row][0];
+    const start = (parseFloat(processTimestamp(csvData[row][1])) * 10)
+    const duration = (parseFloat(processTimestamp(csvData[row][2])) * 10) - 1
+    const end = (parseFloat(start) + parseFloat(duration))
+    parsedCsvData.push([[cuename], start, duration, end]);
   }
 
-  newData3 = [];
-  for (item in newData) {
-    let foundChildren = false;
-    parentitem = newData[item];
-    parentitemno = item;
-    for (item in newData) {
-      if (parseFloat(newData[item][1]) >= parseFloat(parentitem[1]) && parseFloat(newData[item][3]) < parseFloat(parentitem[3])) {
-        // Create list of cuenames
-        nameList = [];
-        for (cuename in parentitem[0]) {
-          if (!nameList.includes(parentitem[0][cuename])) {
-            nameList.push(parentitem[0][cuename]);
-          }
+  return parsedCsvData
+}
+
+/**
+ * Combine cues where the start time and duration match
+ * @param {array} parsedCsvData
+ * @returns {array}
+ */
+function combineCuesByStartAndDuration(parsedCsvData) {
+  combinedCuesByStartAndDuration = [];
+
+  // Loop over every cue in the CSV data
+  for (item in parsedCsvData) {
+    cueNames = []
+
+    // Add the cue name to the "holding store"
+    for (i in parsedCsvData[item][0]) {
+      cueNames.push(parsedCsvData[item][0][i]);
+    }
+
+    // Loop over all preceding cues
+    for (var i = parseInt(item) + 1; i < parsedCsvData.length; i++) {
+      // If the next cue has a matching start & duration, add the cue name to the "holding store" and 
+      // remove it from parsedCsvData as we don't need to go over it again
+      if (parsedCsvData[item][1] == parsedCsvData[i][1] && parsedCsvData[item][2] == parsedCsvData[i][2]) {
+        for (x in parsedCsvData[i][0]) {
+          cueNames.push(parsedCsvData[i][0][x]);
         }
-        for (cuename in newData[item][0]) {
-          if (!nameList.includes(newData[item][0][cuename])) {
-            nameList.push(newData[item][0][cuename]);
-          }
-        }
-        newData3.push([nameList, newData[item][1], newData[item][2], newData[item][3]]);
-        foundChildren = true;
-        newData[item]["used"] = true;
+        parsedCsvData.splice(i, 1);
+        i--;
+        // If it doesn't have a matching start & duration, no subequent cues will either so break out and move onto the next "start time"/next item
+      } else {
+        continue;
       }
     }
-    if (foundChildren != true) {
-      newData3.push(parentitem);
+
+    // Create the combined cue with the list of names from the "holding store" and the time values from the first hit - 
+    // They'll be the same for everything in cueNames
+    combinedCuesByStartAndDuration.push([cueNames, parsedCsvData[item][1], parsedCsvData[item][2], parsedCsvData[item][3]])
+  }
+
+  return combinedCuesByStartAndDuration;
+}
+
+/**
+ * Creates the master cue list for onward processing by determining which cues should fire at which second and for how long
+ * @param {array} combinedCuesByStartAndDuration
+ * @returns {array}
+ */
+function createMasterCueList(combinedCuesByStartAndDuration) {
+  var endTime = combinedCuesByStartAndDuration[combinedCuesByStartAndDuration.length - 1][3]
+
+  var cuesNamesByStartTime = []
+  // Loop over every ms (millisecond) from 1 to the final ms / endTime ms
+  for (var i = 1; i < endTime; i++) {
+    cueNames = []
+    // Loop over every cue
+    // Push cue names that should be active at this ms 
+    // (current loop ms is equal to or greater than the cue start time AND current loop ms is equal to or less than the cue end time)
+    for (x in combinedCuesByStartAndDuration) {
+      if (i >= combinedCuesByStartAndDuration[x][1] && i <= combinedCuesByStartAndDuration[x][3]) {
+        cueNames.push(...combinedCuesByStartAndDuration[x][0])
+      }
+    }
+
+    // Insert into the dictionary if there are cue names to insert, and the cues aren't the same as the previous ms (I.E there is a change)
+    if (cueNames.length !== 0 && (cuesNamesByStartTime.length == 0 || JSON.stringify(cuesNamesByStartTime[cuesNamesByStartTime.length - 1]['cueNames']) !== JSON.stringify(cueNames))) {
+      cuesNamesByStartTime.push({ 'startTimeSeconds': (i / 10000).toFixed(3), 'cueNames': cueNames });
     }
   }
 
-  outgoingData = [];
-  for (item in newData3) {
-    if (!newData3[item]["used"]) {
-      outgoingData.push(newData3[item]);
+  // Create new array in cueName, startTime, duration format
+  masterList = []
+  for (x in cuesNamesByStartTime) {
+    // TODO - Work out the duration properly so that something ending on a chase will work properly.
+    if (parseInt(x) + 1 == cuesNamesByStartTime.length) {
+      duration = cuesNamesByStartTime[x]['startTimeSeconds']
+    } else {
+      duration = ((cuesNamesByStartTime[parseInt(x) + 1]['startTimeSeconds'] - cuesNamesByStartTime[x]['startTimeSeconds'])).toFixed(3)
+    }
+    if (duration != '0.00') {
+      masterList.push([cuesNamesByStartTime[x]['cueNames'], cuesNamesByStartTime[x]['startTimeSeconds'], duration])
     }
   }
 
-  return outgoingData;
+  return masterList;
 }
 
 /**
@@ -468,17 +488,18 @@ async function generateInternalLightCueList(masterCueLists, lightcuelistcachefil
 */
 async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFixture, csvType, destinationCueList, replaceIfAlreadyExists) {
   warnings = [];
-  appleScript.push(`tell application id "com.figure53.qlab.4" to tell front workspace`)
 
   if (csvType == "song") {
-    combinedCues = combineCuesByStartAndDuration(csvData);
+    parsedCsvData = extractAndParseCsvData(csvData);
+    combinedCuesByStartAndDuration = combineCuesByStartAndDuration(parsedCsvData);
+    masterCueList = createMasterCueList(combinedCuesByStartAndDuration);
   } else if (csvType == "show") {
-    combinedCues = {}
+    masterCueList = {}
     for (cue in csvData) {
-      if (csvData[cue][0] in combinedCues) {
-        combinedCues[csvData[cue][0]].push(csvData[cue][1])
+      if (csvData[cue][0] in masterCueList) {
+        masterCueList[csvData[cue][0]].push(csvData[cue][1])
       } else {
-        combinedCues[csvData[cue][0]] = [csvData[cue][1]]
+        masterCueList[csvData[cue][0]] = [csvData[cue][1]]
       }
     }
   }
@@ -489,7 +510,6 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
     if (list["listName"] == destinationCueList) {
       destinationcuelistid = list["uniqueID"];
       await qlabCue.selectById(destinationcuelistid)
-      appleScript.push(`set current cue list to first cue list whose q name is "${destinationCueList}"`)
       break;
     }
   }
@@ -520,13 +540,9 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
 
   // Create 'master' group for this audio timeline
   const groupKey = await createGroup(path.basename(fileName, path.extname(fileName)));
-  appleScript.push(`make type "Group"`)
-  appleScript.push(`set newGroupCue to last item of(selected as list)`)
-  appleScript.push(`set q name of newGroupCue to "${path.basename(fileName, path.extname(fileName))}"`)
 
   if (setCueName) {
     await qlabCue.setNumber("selected", regexMatch[1])
-    appleScript.push(`set q number of newGroupCue to "${path.basename(fileName, path.extname(fileName))}"`)
   }
 
   const progressBar = new cliProgress.SingleBar(
@@ -538,23 +554,23 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
   progresBarActive = true;
 
   if (csvType == "song") {
-    progressBar.start(combinedCues.length);
+    progressBar.start(masterCueList.length);
   } else if (csvType == "show") {
-    progressBar.start(Object.keys(combinedCues).length);
+    progressBar.start(Object.keys(masterCueList).length);
   }
 
   let loopCounter = 1
-  for (cue in combinedCues) {
+  for (cue in masterCueList) {
     progressBar.update(loopCounter);
     if (csvType == "song") {
       // Group cues by start time and duration
       cueid = null;
-      cuelist = combinedCues[cue][0];
-      start = combinedCues[cue][1];
-      duration = combinedCues[cue][2];
+      cuelist = masterCueList[cue][0];
+      start = masterCueList[cue][1];
+      duration = masterCueList[cue][2];
     } else if (csvType == "show") {
       cueid = cue;
-      cuelist = combinedCues[cue];
+      cuelist = masterCueList[cue];
       start = "00.00"
       duration = "00.00"
     }
@@ -685,10 +701,6 @@ async function processCSVData(fileName, csvData, chaseFixtureRemovalOnMatchingFi
   progressBar.stop();
   progresBarActive = false;
 
-  appleScript.push(`end tell`)
-  //for (line in appleScript) {
-  //  console.log(appleScript[line])
-  //}
   return warnings
 }
 
@@ -713,6 +725,8 @@ module.exports.createOSCCueFromString = createOSCCueFromString;
 module.exports.createCueFromChaser = createCueFromChaser;
 module.exports.stringOfFixturesToListOfFixtures = stringOfFixturesToListOfFixtures;
 module.exports.combineSceneFixtures = combineSceneFixtures;
+module.exports.extractAndParseCsvData = extractAndParseCsvData;
+module.exports.createMasterCueList = createMasterCueList
 module.exports.combineCuesByStartAndDuration = combineCuesByStartAndDuration;
 module.exports.generateInternalLightCueList = generateInternalLightCueList;
 module.exports.processCSVData = processCSVData;
