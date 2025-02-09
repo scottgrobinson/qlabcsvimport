@@ -1,15 +1,20 @@
 var helper = require("../helper.js"),
-    core = require("./core.js");
+  core = require("./core.js");
 
 /**
  * Creates a new cue of the specified type
  * @param {string} cuetype The cuetype to create
- * @returns {Promise} 
+ * @returns {Promise}
  */
 function create(cuetype) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/new`, { "type": 's', "value": cuetype }))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(`/workspace/${helper.qlabworkspaceid}/new`, {
+        type: "s",
+        value: cuetype,
+      })
+    );
+  });
 }
 
 /**
@@ -19,9 +24,25 @@ function create(cuetype) {
  * @returns {Promise}
  */
 function move(cue, parent) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/move/${cue}`, [{ "type": 'f', "value": 9999999 }, { "type": 's', "value": parent }]))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(`/workspace/${helper.qlabworkspaceid}/move/${cue}`, [
+        { type: "f", value: 9999999 },
+        { type: "s", value: parent },
+      ])
+    );
+  });
+}
+
+/**
+ * Colapses the specified cue
+ * @param {string} cue The cue to collapse
+ * @returns {Promise}
+ */
+function collapse(cue) {
+  return new Promise((resolve) => {
+    resolve(core.sendMessage(`/cue/${cue}/collapse`, [], true));
+  });
 }
 
 /**
@@ -31,9 +52,9 @@ function move(cue, parent) {
  * @returns {Promise}
  */
 function setName(cue, name) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/name`, { "type": 's', "value": name }))
-    });
+  return new Promise((resolve) => {
+    resolve(core.sendMessage(`/cue/${cue}/name`, { type: "s", value: name }));
+  });
 }
 
 /**
@@ -43,9 +64,9 @@ function setName(cue, name) {
  * @returns {Promise}
  */
 function setMode(cue, mode) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/mode`, { "type": 'f', "value": mode }))
-    });
+  return new Promise((resolve) => {
+    resolve(core.sendMessage(`/cue/${cue}/mode`, { type: "f", value: mode }));
+  });
 }
 
 /**
@@ -54,9 +75,15 @@ function setMode(cue, mode) {
  * @returns {Promise}
  */
 function selectById(cue) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/select_id/${cue}`, [], true))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(
+        `/workspace/${helper.qlabworkspaceid}/select_id/${cue}`,
+        [],
+        true
+      )
+    );
+  });
 }
 
 /**
@@ -65,9 +92,15 @@ function selectById(cue) {
  * @returns {Promise}
  */
 function selectByNumber(cuenum) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/select/${cuenum}`, [], true))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(
+        `/workspace/${helper.qlabworkspaceid}/select/${cuenum}`,
+        [],
+        true
+      )
+    );
+  });
 }
 
 /**
@@ -77,21 +110,25 @@ function selectByNumber(cuenum) {
  * @returns {Promise}
  */
 function setContinueMode(cue, mode) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/continueMode`, { "type": 'f', "value": mode }))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(`/cue/${cue}/continueMode`, { type: "f", value: mode })
+    );
+  });
 }
 
 /**
  * Sets the target ID on the specified cue
- * @param {string} cue The cue to set the target ID on 
+ * @param {string} cue The cue to set the target ID on
  * @param {string} target The target ID to set
  * @returns {Promise}
  */
 function setTargetID(cue, target) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/cueTargetId`, { "type": 's', "value": target }))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(`/cue/${cue}/cueTargetId`, { type: "s", value: target })
+    );
+  });
 }
 
 /**
@@ -101,9 +138,11 @@ function setTargetID(cue, target) {
  * @returns {Promise}
  */
 function setNumber(cue, number) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/number`, { "type": 's', "value": number }))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(`/cue/${cue}/number`, { type: "s", value: number })
+    );
+  });
 }
 
 /**
@@ -113,32 +152,36 @@ function setNumber(cue, number) {
  * @returns {Promise}
  */
 function setDuration(cue, duration) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/duration`, { "type": 'f', "value": duration }))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(`/cue/${cue}/duration`, { type: "f", value: duration })
+    );
+  });
 }
 
 /**
  * Gets the duration of the specified cue
- * @param {string} cue The cue to get the duration of 
+ * @param {string} cue The cue to get the duration of
  * @returns {Promise}
  */
 function getDuration(cue) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/duration`))
-    });
+  return new Promise((resolve) => {
+    resolve(core.sendMessage(`/cue/${cue}/duration`));
+  });
 }
 
 /**
  * Sets the pre-wait time on the specified cue
  * @param {string} cue The cue to set the pre-wait time on
  * @param {number} wait The pre-wait time to set
- * @returns {Promise} 
+ * @returns {Promise}
  */
 function setPreWait(cue, wait) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/preWait`, { "type": 'f', "value": wait }))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(`/cue/${cue}/preWait`, { type: "f", value: wait })
+    );
+  });
 }
 
 /**
@@ -147,9 +190,9 @@ function setPreWait(cue, wait) {
  * @returns {Promise}
  */
 function getPreWait(cue) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/preWait`))
-    });
+  return new Promise((resolve) => {
+    resolve(core.sendMessage(`/cue/${cue}/preWait`));
+  });
 }
 
 /**
@@ -159,9 +202,11 @@ function getPreWait(cue) {
  * @returns {Promise}
  */
 function setColor(cue, color) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/colorName`, { "type": 's', "value": color }))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(`/cue/${cue}/colorName`, { type: "s", value: color })
+    );
+  });
 }
 
 /**
@@ -169,9 +214,9 @@ function setColor(cue, color) {
  * @returns {Promise}
  */
 function list() {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/cueLists`))
-    });
+  return new Promise((resolve) => {
+    resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/cueLists`));
+  });
 }
 
 /**
@@ -180,9 +225,9 @@ function list() {
  * @returns {Promise}
  */
 function getLightString(cue) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/lightCommandText`))
-    });
+  return new Promise((resolve) => {
+    resolve(core.sendMessage(`/cue/${cue}/lightCommandText`));
+  });
 }
 
 /**
@@ -192,9 +237,13 @@ function getLightString(cue) {
  * @returns {Promise}
  */
 function setLightString(cue, lightstring) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/lightCommandText`, [{ "type": 's', "value": lightstring }]))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(`/cue/${cue}/lightCommandText`, [
+        { type: "s", value: lightstring },
+      ])
+    );
+  });
 }
 
 /**
@@ -204,9 +253,13 @@ function setLightString(cue, lightstring) {
  * @returns {Promise}
  */
 function setNetworkPatch(cue, networkpatch) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/patch`, [{ "type": 'f', "value": networkpatch }]))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(`/cue/${cue}/patch`, [
+        { type: "f", value: networkpatch },
+      ])
+    );
+  });
 }
 
 /**
@@ -216,51 +269,58 @@ function setNetworkPatch(cue, networkpatch) {
  * @returns {Promise}
  */
 function setNetworkString(cue, networkstring) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cue}/customString`, [{ "type": 's', "value": networkstring }]))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(`/cue/${cue}/customString`, [
+        { type: "s", value: networkstring },
+      ])
+    );
+  });
 }
 
 /**
  * Gets the ID of the specified cue (Used to determine if a cue exists or not)
- * @param {string} cuenum The cue number get the ID of 
+ * @param {string} cuenum The cue number get the ID of
  * @returns {Promise}
-*/
+ */
 function getCueID(cuenum) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/cue/${cuenum}/uniqueID`, [], true))
-    });
+  return new Promise((resolve) => {
+    resolve(core.sendMessage(`/cue/${cuenum}/uniqueID`, [], true));
+  });
 }
 
 /**
-* Deletes the specifed cue
+ * Deletes the specifed cue
  * @param {string} cue The cue to delete
  * @returns {Promise}
-*/
+ */
 function deleteCueID(cue) {
-    return new Promise(resolve => {
-        resolve(core.sendMessage(`/workspace/${helper.qlabworkspaceid}/delete/${cue}`))
-    });
+  return new Promise((resolve) => {
+    resolve(
+      core.sendMessage(`/workspace/${helper.qlabworkspaceid}/delete/${cue}`)
+    );
+  });
 }
 
-module.exports.create = create
-module.exports.move = move
-module.exports.setName = setName
-module.exports.setMode = setMode
-module.exports.selectById = selectById
-module.exports.selectByNumber = selectByNumber
-module.exports.setContinueMode = setContinueMode
-module.exports.setTargetID = setTargetID
-module.exports.setNumber = setNumber
-module.exports.setDuration = setDuration
-module.exports.getDuration = getDuration
-module.exports.setPreWait = setPreWait
-module.exports.getPreWait = getPreWait
-module.exports.setColor = setColor
-module.exports.list = list
-module.exports.getLightString = getLightString
-module.exports.setLightString = setLightString
-module.exports.setNetworkPatch = setNetworkPatch
-module.exports.setNetworkString = setNetworkString
-module.exports.getCueID = getCueID
-module.exports.deleteCueID = deleteCueID
+module.exports.create = create;
+module.exports.move = move;
+module.exports.collapse = collapse;
+module.exports.setName = setName;
+module.exports.setMode = setMode;
+module.exports.selectById = selectById;
+module.exports.selectByNumber = selectByNumber;
+module.exports.setContinueMode = setContinueMode;
+module.exports.setTargetID = setTargetID;
+module.exports.setNumber = setNumber;
+module.exports.setDuration = setDuration;
+module.exports.getDuration = getDuration;
+module.exports.setPreWait = setPreWait;
+module.exports.getPreWait = getPreWait;
+module.exports.setColor = setColor;
+module.exports.list = list;
+module.exports.getLightString = getLightString;
+module.exports.setLightString = setLightString;
+module.exports.setNetworkPatch = setNetworkPatch;
+module.exports.setNetworkString = setNetworkString;
+module.exports.getCueID = getCueID;
+module.exports.deleteCueID = deleteCueID;

@@ -1,6 +1,6 @@
-var osc = require('osc'),
-    async = require('async'),
-    helper = require('../helper.js');;
+var osc = require("osc"),
+  async = require("async"),
+  helper = require("../helper.js");
 
 let qlabconn = new osc.TCPSocketPort({});
 
@@ -10,24 +10,27 @@ let qlabconn = new osc.TCPSocketPort({});
  * @returns {Promise}
  */
 async function init(qlabip) {
-    console.log(`Attempting to connect to qLab at ${qlabip}\n`)
+  console.log(`Attempting to connect to qLab at ${qlabip}\n`);
 
-    qlabconn.open(qlabip, 53000);
+  qlabconn.open(qlabip, 53000);
 
-    qlabconn.on('error', (error) => {
-        helper.showErrorAndExit(`An OSC error occurred: ${error.message}`)
-    });
+  qlabconn.on("error", (error) => {
+    helper.showErrorAndExit(`An OSC error occurred: ${error.message}`);
+  });
 
-    return new Promise((resolve, reject) => {
-        qlabconn.on('ready', () => {
-            console.log('Connected to qLab!');
+  return new Promise((resolve, reject) => {
+    qlabconn.on("ready", () => {
+      console.log("Connected to qLab!");
 
-            (async () => {
-                let sendmsg = await sendMessage(`/alwaysReply`, { "type": 'f', "value": 1 })
-                resolve(qlabconn);
-            })();
+      (async () => {
+        let sendmsg = await sendMessage(`/alwaysReply`, {
+          type: "f",
+          value: 1,
         });
-    })
+        resolve(qlabconn);
+      })();
+    });
+  });
 }
 
 /**
@@ -37,40 +40,60 @@ async function init(qlabip) {
  * @returns {Promise}
  */
 async function sendMessage(address, arguments, allowFailure = false) {
-    return new Promise((resolve, reject) => {
-        currentMessage = { 'address': address, 'status': false }
+  return new Promise((resolve, reject) => {
+    currentMessage = { address: address, status: false };
 
-        qlabconn.send({
-            address: address,
-            args: arguments
-        });
-
-        function checkMessageStatus(callback) {
-            if (currentMessage['address'] == address && currentMessage['status'] == 'ok') {
-                callback(null, currentMessage['data']) // No Error
-            } else if (currentMessage['address'].match(address.replace('/cue/selected/', 'cue\/.*\/')) && currentMessage['status'] == 'ok') {
-                callback(null, currentMessage['data']) // No Error
-            } else {
-                callback(true) // Error
-            }
-        }
-
-        async.retry({ times: 5000, interval: 1 }, checkMessageStatus, function (err, result) {
-            if (allowFailure || !err) {
-                resolve(result)
-            } else {
-                helper.showErrorAndExit(`No response received when sending ${JSON.stringify(arguments)} to ${address}`)
-            }
-        });
+    qlabconn.send({
+      address: address,
+      args: arguments,
     });
+
+    function checkMessageStatus(callback) {
+      if (
+        currentMessage["address"] == address &&
+        currentMessage["status"] == "ok"
+      ) {
+        callback(null, currentMessage["data"]); // No Error
+      } else if (
+        currentMessage["address"].match(
+          address.replace("/cue/selected/", "cue/.*/")
+        ) &&
+        currentMessage["status"] == "ok"
+      ) {
+        callback(null, currentMessage["data"]); // No Error
+      } else {
+        callback(true); // Error
+      }
+    }
+
+    async.retry(
+      { times: 10000, interval: 1 },
+      checkMessageStatus,
+      function (err, result) {
+        if (allowFailure || !err) {
+          resolve(result);
+        } else {
+          helper.showErrorAndExit(
+            `No response received when sending ${JSON.stringify(
+              arguments
+            )} to ${address}`
+          );
+        }
+      }
+    );
+  });
 }
 
 // On receiving an OSC message from QLab
 qlabconn.on("message", function (oscMsg) {
-    //console.log("An OSC message just arrived!", oscMsg);
-    oscMsg = JSON.parse(oscMsg['args'])
-    currentMessage = { 'address': oscMsg['address'], 'status': oscMsg['status'], 'data': oscMsg['data'] }
+  //console.log("An OSC message just arrived!", oscMsg);
+  oscMsg = JSON.parse(oscMsg["args"]);
+  currentMessage = {
+    address: oscMsg["address"],
+    status: oscMsg["status"],
+    data: oscMsg["data"],
+  };
 });
 
-module.exports.init = init
-module.exports.sendMessage = sendMessage
+module.exports.init = init;
+module.exports.sendMessage = sendMessage;
