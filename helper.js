@@ -145,8 +145,15 @@ async function createGroup(groupKey) {
  * @param {string} sceneName The name of the scene to use
  * @param {string} start The start time of the cue (sss.mmm)
  * @param {string} cueID The ID of the scene to use (can be null so the ID is auto generated)
+ * @param {string} duration The duration to fade in the scene (sss.mmm, defaults to 00.000)
  */
-async function createLightCueFromScene(groupKey, sceneName, start, cueID) {
+async function createLightCueFromScene(
+  groupKey,
+  sceneName,
+  start,
+  cueID,
+  duration = "00.000"
+) {
   if (!("lightstring" in lightCues[sceneName])) {
     lightCues[sceneName]["lightstring"] = await qlabCue.getLightString(
       lightCues[sceneName]["number"]
@@ -163,7 +170,7 @@ async function createLightCueFromScene(groupKey, sceneName, start, cueID) {
   await qlabCue.setName("selected", sceneName);
 
   await qlabCue.setLightString("selected", lightCues[sceneName]["lightstring"]);
-  await qlabCue.setDuration("selected", "00.000");
+  await qlabCue.setDuration("selected", duration);
   await qlabCue.setPreWait("selected", await start);
   await qlabCue.move(newcue, groupKey);
 }
@@ -833,9 +840,17 @@ async function processCSVData(
           }
         }
       } else if (lightCues[cuelist[0]]["type"] == "Scenes") {
-        await createLightCueFromScene(childGroupKey, cuelist[0], start);
         if (csvType == "show") {
+          await createLightCueFromScene(
+            childGroupKey,
+            cuelist[0],
+            start,
+            null,
+            "00.250"
+          );
           await qlabCue.move(childGroupKey, groupKey);
+        } else {
+          await createLightCueFromScene(childGroupKey, cuelist[0], start);
         }
       } else if (lightCues[cuelist[0]]["type"] == "Chases") {
         chaseKey = await createCueFromChaser(
@@ -893,7 +908,11 @@ async function processCSVData(
           "selected",
           listOfFixturesToStringOfFixtures(await combineSceneFixtures(cuelist))
         );
-        await qlabCue.setDuration("selected", "00.000");
+        if (csvType == "show") {
+          await qlabCue.setDuration("selected", "00.250");
+        } else {
+          await qlabCue.setDuration("selected", "00.000");
+        }
         await qlabCue.setPreWait("selected", start);
 
         await qlabCue.move(newcue, childGroupKey);
@@ -952,7 +971,11 @@ async function processCSVData(
             "selected",
             listOfFixturesToStringOfFixtures(lightsInScene)
           );
-          await qlabCue.setDuration("selected", "00.000");
+          if (csvType == "show") {
+            await qlabCue.setDuration("selected", "00.250");
+          } else {
+            await qlabCue.setDuration("selected", "00.000");
+          }
           await qlabCue.setPreWait("selected", start);
           await qlabCue.move(newcue, parent);
         }
